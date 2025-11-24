@@ -9,7 +9,7 @@ const dssBodyDebug = dssDebug.extend("body");
 
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 60 minutes
 const INACTIVITY_TTL_MS = 10 * 60 * 1000; // 10 minutes
-const MAX_QUEUE_SIZE = 10; // max records per queue
+const MAX_QUEUE_SIZE = 64; // max records per queue
 const MAX_POST_DATA_BYTES = 64 * 1024; // 64 KB
 
 export class RelayQueue<T = unknown> {
@@ -89,6 +89,14 @@ export class RelayStore<T = unknown> {
     return payload;
   }
 
+  delete(id: string) {
+    if (this.destroyed) {
+      throw new Error("Store is destroyed");
+    }
+
+    return this.queues.delete(id);
+  }
+
   private cleanup() {
     const now = Date.now();
     for (const [id, queue] of this.queues.entries()) {
@@ -160,10 +168,29 @@ dss.get("/data/:id", (c) => {
 
   try {
     const payload = store.pop(id);
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "once" in payload &&
+      payload.once === true
+    ) {
+      store.delete(id);
+    }
     if (payload === undefined) {
       return c.body(null, 404);
     }
     return c.json(payload, 200);
+  } catch (error) {
+    return c.json({ error: stringifyError(error) }, 500);
+  }
+});
+
+// DELETE /data/:id
+dss.delete("/data/:id", (c) => {
+  const id = c.req.param("id");
+
+  try {
+    return c.json({ existed: store.delete(id) }, 200);
   } catch (error) {
     return c.json({ error: stringifyError(error) }, 500);
   }
