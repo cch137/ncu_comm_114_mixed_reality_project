@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: DefaultCompany
-  productName: mixed_reality_project
+  productName: mixed_reality_server
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
@@ -917,14 +917,14 @@ PlayerSettings:
   editorAssembliesCompatibilityLevel: 1
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: mixed_reality_project
+  metroPackageName: mixed_reality_server
   metroPackageVersion: 1.0.0.0
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
   metroCertificateIssuer: 
   metroCertificateNotAfter: 0000000000000000
-  metroApplicationDescription: mixed_reality_project
+  metroApplicationDescription: mixed_reality_server
   wsaImages: {}
   metroTileShortName: com.unity.template.mr
   metroTileShowName: 0
@@ -999,7 +999,7 @@ PlayerSettings:
   cloudProjectId: da91e7bc-f87c-4445-9d52-a0e8e6e6ebc4
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: mixed_reality_project 2025-12-23_19-43-11
+  projectName: mixed_reality_server 2025-12-23_19-43-11
   organizationId: unity_804a2f7ef7ec23bb9794
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
