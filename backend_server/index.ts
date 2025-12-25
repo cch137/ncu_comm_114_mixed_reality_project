@@ -1,13 +1,17 @@
 import { config as dotenv } from "dotenv";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+<<<<<<< HEAD
 import { createNodeWebSocket } from "@hono/node-ws";
 import { getConnInfo } from "@hono/node-server/conninfo";
+=======
+>>>>>>> e742993 (rename backend_server)
 import createDebug from "debug";
 
 dotenv();
 
 import dss from "./services/dss";
+<<<<<<< HEAD
 export * as threejsWorkflow from "./services/workflows/threejs";
 
 const debug = createDebug("server");
@@ -59,19 +63,39 @@ app.get(
 
 app.onError((err, c) => {
   debug("app error:", err);
+=======
+
+const bootDebug = createDebug("boot");
+
+const app = new Hono();
+
+app.route("", dss);
+
+app.onError((err, c) => {
+  bootDebug("app error:", err);
+>>>>>>> e742993 (rename backend_server)
   return c.text("Service Unavailable", 503);
 });
 
 process.on("uncaughtException", (error) => {
+<<<<<<< HEAD
   debug("uncaughtException:", error);
 });
 
 process.on("unhandledRejection", (error) => {
   debug("unhandledRejection:", error);
+=======
+  bootDebug("uncaughtException:", error);
+});
+
+process.on("unhandledRejection", (error) => {
+  bootDebug("unhandledRejection:", error);
+>>>>>>> e742993 (rename backend_server)
 });
 
 const port =
   (process.env.PORT && Number.parseInt(process.env.PORT, 10)) || 3000;
+<<<<<<< HEAD
 const server = serve({ fetch: app.fetch, port }, (info) => {
   debug(`online @ http://localhost:${info.port}`);
 });
@@ -79,3 +103,9 @@ const server = serve({ fetch: app.fetch, port }, (info) => {
 injectWebSocket(server);
 
 export default app;
+=======
+
+serve({ fetch: app.fetch, port }, (info) => {
+  bootDebug(`online @ http://localhost:${info.port}`);
+});
+>>>>>>> e742993 (rename backend_server)
