@@ -19,7 +19,7 @@ describe("workflows/object-designer", () => {
     );
 
     const md = await readFile(fixturePath, "utf8");
-    const code = extractCodeFromMarkdown(md);
+    const code = extractCodeFromMarkdown(md) ?? md;
 
     expect(typeof code).toBe("string");
     expect(code.trim().length).toBeGreaterThan(0);

@@ -67,15 +67,23 @@ const instructions = (() => {
   };
 })();
 
-export function extractCodeFromMarkdown(markdown: string) {
-  const regex = /```(?:[\w-]*)?\n([\s\S]*?)```\n?/;
+export function extractCodeFromMarkdown(markdown: string): string | null {
+  const regex = /```(?:[^\n]*)\n([\s\S]*?)```\n?/;
   const match = markdown.match(regex);
-  if (match) return match[1];
-  const i1 = markdown.indexOf("```");
-  if (i1 === -1) return markdown;
-  const i2 = markdown.indexOf("```", i1 + 3);
-  if (i2 === -1) return markdown.substring(i1 + 3);
-  return markdown.substring(i1 + 3, i2);
+  if (match) {
+    return match[1];
+  }
+  const startTagIndex = markdown.indexOf("```");
+  if (startTagIndex === -1) return null;
+  const firstLineEndIndex = markdown.indexOf("\n", startTagIndex);
+  if (firstLineEndIndex === -1) return "";
+  const codeStartIndex = firstLineEndIndex + 1;
+  const endTagIndex = markdown.indexOf("```", codeStartIndex);
+  if (endTagIndex !== -1) {
+    return markdown.substring(codeStartIndex, endTagIndex);
+  } else {
+    return markdown.substring(codeStartIndex);
+  }
 }
 
 export async function generateThreeJsCodeForObject(options: {
@@ -88,7 +96,7 @@ export async function generateThreeJsCodeForObject(options: {
     prompt: await instructions.generation(options.props),
     providerOptions: options.providerOptions,
   });
-  return extractCodeFromMarkdown(text);
+  return extractCodeFromMarkdown(text) ?? text;
 }
 
 type WorkerLogs = {
