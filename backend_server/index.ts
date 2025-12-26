@@ -1,18 +1,15 @@
 import { config as dotenv } from "dotenv";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-<<<<<<< HEAD
 import { createNodeWebSocket } from "@hono/node-ws";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { getConnInfo } from "@hono/node-server/conninfo";
-=======
->>>>>>> e742993 (rename backend_server)
 import createDebug from "debug";
 
 dotenv();
 
 import dss from "./services/dss";
-<<<<<<< HEAD
-export * as threejsWorkflow from "./services/workflows/threejs";
+import objectDesigner from "./routers/object-designer";
 
 const debug = createDebug("server");
 const wsDebug = debug.extend("ws");
@@ -37,7 +34,24 @@ app.use("*", async (c, next) => {
   debug(`${method} ${status} ${url} (${contentLength}b) (${ms}ms) ${ip}`);
 });
 
+app.use(
+  "/public/*",
+  serveStatic({
+    root: "./",
+    onFound: (_path, c) => {
+      c.header(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, max-age=0"
+      );
+      c.header("Pragma", "no-cache");
+      c.header("Expires", "0");
+    },
+  })
+);
+
 app.route("", dss);
+
+app.route("/obj-dsgn/", objectDesigner);
 
 app.get("/", (c) => {
   return c.json({ status: "OK" });
@@ -63,39 +77,19 @@ app.get(
 
 app.onError((err, c) => {
   debug("app error:", err);
-=======
-
-const bootDebug = createDebug("boot");
-
-const app = new Hono();
-
-app.route("", dss);
-
-app.onError((err, c) => {
-  bootDebug("app error:", err);
->>>>>>> e742993 (rename backend_server)
   return c.text("Service Unavailable", 503);
 });
 
 process.on("uncaughtException", (error) => {
-<<<<<<< HEAD
   debug("uncaughtException:", error);
 });
 
 process.on("unhandledRejection", (error) => {
   debug("unhandledRejection:", error);
-=======
-  bootDebug("uncaughtException:", error);
-});
-
-process.on("unhandledRejection", (error) => {
-  bootDebug("unhandledRejection:", error);
->>>>>>> e742993 (rename backend_server)
 });
 
 const port =
   (process.env.PORT && Number.parseInt(process.env.PORT, 10)) || 3000;
-<<<<<<< HEAD
 const server = serve({ fetch: app.fetch, port }, (info) => {
   debug(`online @ http://localhost:${info.port}`);
 });
@@ -103,9 +97,3 @@ const server = serve({ fetch: app.fetch, port }, (info) => {
 injectWebSocket(server);
 
 export default app;
-=======
-
-serve({ fetch: app.fetch, port }, (info) => {
-  bootDebug(`online @ http://localhost:${info.port}`);
-});
->>>>>>> e742993 (rename backend_server)
