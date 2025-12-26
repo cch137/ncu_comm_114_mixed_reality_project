@@ -1,5 +1,5 @@
 {
-  "name": "node_server",
+  "name": "backend_server",
   "version": "0.0.0",
   "description": "a simple dss",
   "main": "index.ts",
@@ -11,15 +11,22 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/google": "^3.0.1",
     "@hono/node-server": "^1.19.6",
+    "@hono/node-ws": "^1.2.0",
+    "ai": "^6.0.3",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
-    "hono": "^4.10.6"
+    "handlebars": "^4.7.8",
+    "hono": "^4.10.6",
+    "safe-stable-stringify": "^2.5.0",
+    "three": "^0.182.0",
+    "vm2": "^3.10.0",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^24.10.1",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",

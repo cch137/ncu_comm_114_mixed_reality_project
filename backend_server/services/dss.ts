@@ -124,20 +124,6 @@ export const store = new RelayStore<unknown>(
 
 const dss = new Hono();
 
-// simple logger: :method :url :status :res[content-length] - :response-time ms
-dss.use("*", async (c, next) => {
-  const start = Date.now();
-  await next();
-  const ms = Date.now() - start;
-
-  const method = c.req.method;
-  const url = c.req.url;
-  const status = c.res.status;
-  const contentLength = c.res.headers.get("content-length") ?? "0";
-
-  dssDebug(`${method} ${url} ${status} ${contentLength} - ${ms} ms`);
-});
-
 // POST /data/:id  (JSON only)
 dss.post("/data/:id", async (c) => {
   const contentLength = Number(c.req.header("content-length") ?? 0);
