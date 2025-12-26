@@ -21,6 +21,8 @@
     "hono": "^4.10.6",
     "safe-stable-stringify": "^2.5.0",
     "three": "^0.182.0",
+    "three-stdlib": "^2.36.1",
+    "typescript": "^5.9.3",
     "vm2": "^3.10.0",
     "zod": "^4.2.1"
   },
@@ -32,7 +34,6 @@
     "nodemon": "^3.1.11",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
-    "tsc": "^2.0.4",
-    "typescript": "^5.9.3"
+    "tsc": "^2.0.4"
   }
 }
