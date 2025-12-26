@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.endel.nativewebsocket": "https://github.com/endel/NativeWebSocket.git#upm",
     "com.unity.cloud.draco": "5.4.2",
     "com.unity.cloud.gltfast": "6.15.1",
     "com.unity.cloud.ktx": "3.6.2",
@@ -10,9 +11,11 @@
     "com.unity.meshopt.decompress": "0.2.0-exp.1",
     "com.unity.mobile.android-logcat": "1.4.6",
     "com.unity.multiplayer.center": "1.0.1",
+    "com.unity.netcode.gameobjects": "2.7.0",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.test-framework": "1.6.0",
+    "com.unity.webrtc": "3.0.0",
     "com.unity.xr.androidxr-openxr": "1.1.0",
     "com.unity.xr.arfoundation": "6.3.1",
     "com.unity.xr.core-utils": "2.5.3",
