@@ -9,7 +9,7 @@ import createDebug from "debug";
 dotenv();
 
 import dss from "./services/dss";
-export * as threejsWorkflow from "./services/workflows/threejs";
+import objectDesigner from "./routers/object-designer";
 
 const debug = createDebug("server");
 const wsDebug = debug.extend("ws");
@@ -50,6 +50,8 @@ app.use(
 );
 
 app.route("", dss);
+
+app.route("/obj-dsgn/", objectDesigner);
 
 app.get("/", (c) => {
   return c.json({ status: "OK" });
