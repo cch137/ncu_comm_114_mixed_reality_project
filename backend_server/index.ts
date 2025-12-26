@@ -2,6 +2,7 @@ import { config as dotenv } from "dotenv";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { createNodeWebSocket } from "@hono/node-ws";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import createDebug from "debug";
 
@@ -32,6 +33,21 @@ app.use("*", async (c, next) => {
 
   debug(`${method} ${status} ${url} (${contentLength}b) (${ms}ms) ${ip}`);
 });
+
+app.use(
+  "/public/*",
+  serveStatic({
+    root: "./",
+    onFound: (_path, c) => {
+      c.header(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, max-age=0"
+      );
+      c.header("Pragma", "no-cache");
+      c.header("Expires", "0");
+    },
+  })
+);
 
 app.route("", dss);
 
