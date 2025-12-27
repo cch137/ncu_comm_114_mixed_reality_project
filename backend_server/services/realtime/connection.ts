@@ -276,7 +276,7 @@ export function realtimeHandler(): WSEvents<WebSocket> {
             data: {
               id: generateRandomId(),
               name: "茶壺",
-              url: "https://40001.cch137.com/public/output/workflows/object-designer/teapot.gltf",
+              url: "https://40001.cch137.com/output/workflows/object-designer/teapot.gltf",
             },
           })
         );
