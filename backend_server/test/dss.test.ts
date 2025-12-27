@@ -1,4 +1,4 @@
-import dss, { store } from "../services/dss";
+import dss, { store } from "../routers/dss";
 
 describe("dss", () => {
   it("GET /data/test-id-001 -> 404 when no data", async () => {
