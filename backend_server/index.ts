@@ -6,11 +6,13 @@ dotenv();
 import { app, upgradeWebSocket } from "./server";
 import { realtimeHandler } from "./services/realtime/connection";
 import dss from "./routers/dss";
+import monitor from "./routers/monitor";
 import objectDesigner from "./routers/object-designer";
 
 const debug = createDebug("server");
 
 app.route("", dss);
+app.route("/monitor/", monitor);
 app.route("/obj-dsgn/", objectDesigner);
 
 app.get("/", (c) => {
