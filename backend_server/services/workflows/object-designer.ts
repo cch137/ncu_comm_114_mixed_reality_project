@@ -216,6 +216,7 @@ export class ObjectGenerationTask extends EventEmitter<{
     vmTimeoutMs,
   }: ObjectGenerationOptions) {
     super();
+    object_name = object_name.trim().replace(/\s+/g, "_");
     this.objectProps = { object_name, object_description };
     this.languageModel = languageModel;
     this.providerOptions = providerOptions;
