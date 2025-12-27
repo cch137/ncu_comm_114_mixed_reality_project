@@ -22,7 +22,6 @@ const DEFAULT_HEARTBEAT_MS = 10_000;
 
 const log = debug("rltm");
 
-/** These events are sent from the SERVER to the CLIENT. */
 export enum ServerEvent {
   Error = "Error",
   Ping = "Ping",
@@ -41,7 +40,6 @@ export enum ServerEvent {
   LeaveRoomError = "LeaveRoomError",
 }
 
-/** These events are sent from the CLIENT to the SERVER. */
 export enum ClientEvent {
   Ping = "Ping",
   Pong = "Pong",

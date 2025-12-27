@@ -1,150 +1,241 @@
+import { EventEmitter } from "events";
 import createDebug from "debug";
 import { z } from "zod";
-
-const debug = createDebug("obj-g");
-
+import { RealtimeClient, type Pose } from "../realtime/connection";
 
 
-/** ===== Types ===== */
-type Vec3 = { x: number; y: number; z: number };
+const debug = createDebug("mv-fn");
 
-type TransformDTO = {
-    position: Vec3;
-    rotationEuler: Vec3; // degrees
-    scale: Vec3;
-    space: "world" | "local";
-};
+// -------------------- Schemas --------------------
+export const ObjectPropsSchema = z.object({
+  object_name: z.string().min(1),
+  object_description: z.string().optional().default(""),
+});
 
-type StateUpdateMsg = {
-    type: "state_update";
-    objectId: string;
-    pose: TransformDTO;
-    timestampMs?: number;
-};
-
-type AckMsg = {
-    type: "ack";
-    requestId: string;
-    status: "ok" | "error";
-    objectId?: string;
-    message?: string;
-};
-
-type MoveCommand = {
-    op: "move";
-    objectId: string;
-    to: TransformDTO;
-    durationMs?: number;
-};
-
-type AttachCommand = {
-    op: "attach";
-    objectId: string;
-    target: { kind: "hand"; hand: "left" | "right"; joint?: "palm" | "wrist" };
-    offset?: TransformDTO; // local offset on hand
-};
-
-type CommandEnvelope = {
-    type: "command";
-    requestId: string;
-    commands: Array<MoveCommand | AttachCommand>;
-};
-
-/** ===== In-memory state (backend 端記住 Unity 回報的最新座標) ===== */
-const latestPoseById = new Map<string, TransformDTO>();
-const latestTsById = new Map<string, number>();
-
-/** ===== WS server ===== */
+export type ObjectProps = z.infer<typeof ObjectPropsSchema>;
 
 
 
-let unitySocket: WebSocket | null = null;
+export const PoseSchema = z.object({
+  pos: z.tuple([z.number(), z.number(), z.number()]),
+  rot: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+});
 
+export const MoveCommandSchema = z.object({
+  object_id: z.string().min(1),
+  to: PoseSchema,
+  durationMs: z.number().int().min(0).max(60_000).optional(),
+});
 
+export type MoveCommand = z.infer<typeof MoveCommandSchema>;
 
-/** ===== Helpers ===== */
-function rid(): string {
-    return `req_${Math.random().toString(16).slice(2)}`;
+// -------------------- Task / State (對齊 object-designer.ts 風格) --------------------
+
+export enum MoveStatus {
+  QUEUED = "queued",
+  PROCESSING = "processing",
+  COMPLETED = "completed",
+  FAILED = "failed",
 }
 
-function sendToUnity(envelope: CommandEnvelope): void {
-    if (!unitySocket) {
-        console.log("⚠️ Unity not connected, cannot send command.");
-        return;
+export type MoveTaskState =
+  | { status: MoveStatus.QUEUED; finalPose: null; reason: null }
+  | { status: MoveStatus.PROCESSING; finalPose: null; reason: null }
+  | { status: MoveStatus.COMPLETED; finalPose: Pose; reason: null }
+  | { status: MoveStatus.FAILED; finalPose: null; reason: string };
+
+export class MoveObjectTask extends EventEmitter<{
+  statusChange: [newStatus: MoveStatus, oldStatus: MoveStatus];
+}> {
+  private static readonly record = new Map<string, MoveObjectTask>();
+
+  static create(options: {
+    client: RealtimeClient;
+    command: MoveCommand;
+    timeoutMs?: number;
+  }) {
+    return new MoveObjectTask(options);
+  }
+
+  static get(id: string) {
+    return this.record.get(id) ?? null;
+  }
+
+  static getState(id: string): MoveTaskState | null {
+    return this.record.get(id)?.getState() ?? null;
+  }
+
+  static cancel(id: string) {
+    const task = this.record.get(id);
+    if (task) {
+      task.cancel();
+      return true;
     }
-    unitySocket.send(JSON.stringify(envelope));
-}
+    return false;
+  }
 
-/** ===== (1) 你要的：從 Unity 拿到茶壺座標（backend 端讀取） ===== */
-export function getLatestPose(objectId: string): TransformDTO | null {
-    return latestPoseById.get(objectId) ?? null;
-}
+  static delete(id: string) {
+    this.cancel(id);
+    return this.record.delete(id);
+  }
 
-/** ===== (2) 你要的：move function（產生封包 + 送 Unity） ===== */
-export function moveObject(params: {
-    objectId: string;
-    toPosition: Vec3;
-    toRotationEuler?: Vec3;
-    toScale?: Vec3;
-    durationMs?: number;
-}): void {
-    const envelope: CommandEnvelope = {
-        type: "command",
-        requestId: rid(),
-        commands: [
-            {
-                op: "move",
-                objectId: params.objectId,
-                durationMs: params.durationMs ?? 300,
-                to: {
-                    position: params.toPosition,
-                    rotationEuler: params.toRotationEuler ?? { x: 0, y: 0, z: 0 },
-                    scale: params.toScale ?? { x: 1, y: 1, z: 1 },
-                    space: "world"
-                }
-            }
-        ]
-    };
-    sendToUnity(envelope);
-}
+  static cleanupInactive(ttlMs: number) {
+    const now = Date.now();
+    for (const [id, task] of this.record.entries()) {
+      if (
+        (task.status === MoveStatus.COMPLETED ||
+          task.status === MoveStatus.FAILED) &&
+        task.endAtMs !== null &&
+        now - task.endAtMs >= ttlMs
+      ) {
+        this.record.delete(id);
+      }
+    }
+  }
 
-/** ===== (2) 你要的：attach function（放到手上更好的做法） ===== */
-export function attachToHand(params: {
-    objectId: string;
-    hand: "left" | "right";
-    offset?: TransformDTO; // local offset on hand
-}): void {
-    const envelope: CommandEnvelope = {
-        type: "command",
-        requestId: rid(),
-        commands: [
-            {
-                op: "attach",
-                objectId: params.objectId,
-                target: { kind: "hand", hand: params.hand, joint: "palm" },
-                offset: params.offset ?? {
-                    position: { x: 0.02, y: -0.02, z: 0.06 },
-                    rotationEuler: { x: 0, y: 90, z: 0 },
-                    scale: { x: 1, y: 1, z: 1 },
-                    space: "local"
-                }
-            }
-        ]
-    };
-    sendToUnity(envelope);
-}
+  readonly id: string;
+  private readonly client: RealtimeClient;
+  private readonly command: MoveCommand;
+  private readonly timeoutMs: number;
 
-/** ===== Demo：測試用（你可以先看它有動） =====
- * 1) 每 3 秒把茶壺往 x +0.1 移動一次（前提：Unity 已生成 teapot_1 並開始 state_update）
- */
-setInterval(() => {
-    const pose = getLatestPose("teapot_1");
-    if (!pose) return;
+  private cancelled = false;
+  private taskPromise: Promise<void> | null = null;
 
-    moveObject({
-        objectId: "teapot_1",
-        toPosition: { x: pose.position.x + 0.1, y: pose.position.y, z: pose.position.z },
-        toRotationEuler: pose.rotationEuler,
-        durationMs: 400
+  private _status: MoveStatus = MoveStatus.QUEUED;
+  private finalPose: Pose | null = null;
+  private reason: string | null = null;
+
+  private endAtMs: number | null = null;
+
+  private constructor(options: {
+    client: RealtimeClient;
+    command: MoveCommand;
+    timeoutMs?: number;
+  }) {
+    super();
+
+   
+    const command = MoveCommandSchema.parse(options.command);
+
+    this.client = options.client;
+    this.command = command;
+    this.timeoutMs = options.timeoutMs ?? 10_000;
+
+    this.id = crypto.randomUUID();
+    MoveObjectTask.record.set(this.id, this);
+
+    debug(`task[${this.id}] queued move for object '${this.command.object_id}'`);
+  }
+
+  private get status() {
+    return this._status;
+  }
+
+  private set status(status: MoveStatus) {
+    if (status === this._status) return;
+    const oldStatus = this._status;
+    this._status = status;
+    this.emit("statusChange", status, oldStatus);
+    debug(`task[${this.id}] status changed from '${oldStatus}' to '${status}'`);
+  }
+
+  getState(): MoveTaskState {
+    if (this.status === MoveStatus.COMPLETED) {
+      return {
+        status: this.status,
+        finalPose: this.finalPose as Pose,
+        reason: null,
+      };
+    }
+    if (this.status === MoveStatus.FAILED) {
+      return {
+        status: this.status,
+        finalPose: null,
+        reason: this.reason ?? "unknown error",
+      };
+    }
+    return { status: this.status, finalPose: null, reason: null };
+  }
+
+  execute() {
+    if (this.taskPromise) return this.taskPromise;
+
+    this.status = MoveStatus.PROCESSING;
+    this.taskPromise = new Promise<void>((resolve) => {
+      if (this.cancelled) return resolve();
+
+      const requestId = crypto.randomUUID();
+
+   
+      this.client.sendMoveObject({
+        requestId,
+        objectId: this.command.object_id,
+        to: this.command.to,
+        durationMs: this.command.durationMs,
+      });
+
+  
+      this.client
+        .waitMoveAck(requestId, this.timeoutMs)
+        .then((ack) => {
+          if (this.cancelled) return;
+
+          if (ack.ok) {
+            this.finalPose = ack.finalPose;
+            this.reason = null;
+            this.status = MoveStatus.COMPLETED;
+          } else {
+            this.finalPose = null;
+            this.reason = ack.reason;
+            this.status = MoveStatus.FAILED;
+          }
+        })
+        .catch((err) => {
+          if (this.cancelled) return;
+          this.finalPose = null;
+          this.reason = (err as Error)?.message ?? String(err);
+          this.status = MoveStatus.FAILED;
+        })
+        .finally(() => {
+          resolve();
+          if (this.endAtMs === null) this.endAtMs = Date.now();
+        });
     });
-}, 3000);
+
+    return this.taskPromise;
+  }
+
+  cancel() {
+    if (this.status === MoveStatus.COMPLETED || this.status === MoveStatus.FAILED) {
+      return;
+    }
+    this.cancelled = true;
+    this.finalPose = null;
+    this.reason = "Task was cancelled";
+    this.status = MoveStatus.FAILED;
+    this.endAtMs = Date.now();
+  }
+}
+
+
+(() => {
+  const CLEANUP_INTERVAL_MS = 15 * 60 * 1000; // 15 minute
+  const INACTIVITY_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  setInterval(() => {
+    MoveObjectTask.cleanupInactive(INACTIVITY_TTL_MS);
+  }, CLEANUP_INTERVAL_MS);
+})();
+
+
+export function moveObject(options: {
+  client: RealtimeClient;
+  command: MoveCommand;
+  timeoutMs?: number;
+}) {
+  const task = MoveObjectTask.create(options);
+  task.execute();
+  return task;
+}
+
+export default {};
