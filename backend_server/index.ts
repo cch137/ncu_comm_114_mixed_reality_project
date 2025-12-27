@@ -9,6 +9,7 @@ dotenv();
 
 import dss from "./services/dss";
 export * as threejsWorkflow from "./services/workflows/threejs";
+export * as objg from "./services/workflows/object-move";
 
 const debug = createDebug("server");
 const wsDebug = debug.extend("ws");
