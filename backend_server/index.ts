@@ -35,9 +35,9 @@ app.use("*", async (c, next) => {
 });
 
 app.use(
-  "/public/*",
+  "/*",
   serveStatic({
-    root: "./",
+    root: "./public/",
     onFound: (_path, c) => {
       c.header(
         "Cache-Control",
