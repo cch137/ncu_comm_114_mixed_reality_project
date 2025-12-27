@@ -1,6 +1,7 @@
 import createDebug from "debug";
 import type { WSEvents, WSContext } from "hono/ws";
 import { z } from "zod";
+import { playAudio } from "./audio";
 
 const debug = createDebug("rltm");
 
@@ -19,6 +20,7 @@ export enum ServerEvent {
   Ping = "Ping",
   Pong = "Pong",
   LoadGLTF = "LoadGLTF",
+  Audio = "Audio",
   JoinRoomOK = "JoinRoomOK",
   JoinRoomError = "JoinRoomError",
   LeaveRoomOK = "LeaveRoomOK",
@@ -52,11 +54,19 @@ const ItemIdPacketSchema = z.object({
   id: z.string(),
 });
 
+const AudioPacketSchema = z.object({
+  pcm: z.string(),
+});
+
 const HeadPosePacket = PoseSchema;
 
 const HandsPoseSchema = z.tuple([PoseSchema, PoseSchema]);
 
 export type Pose = z.infer<typeof PoseSchema>;
+
+class ScheduledTask {
+  constructor(public readonly timeout: NodeJS.Timeout) {}
+}
 
 export class RealtimeClient {
   private static _internalCounter = 0;
@@ -66,7 +76,8 @@ export class RealtimeClient {
   name = `Client_${++RealtimeClient._internalCounter}`;
 
   protected readonly heartbeatMs: number;
-  protected readonly intervals: NodeJS.Timeout[] = [];
+  protected readonly intervals = new Set<ScheduledTask>();
+  protected readonly timeouts = new Set<ScheduledTask>();
   protected readonly loadedObjectIds = new Set<string>();
 
   headPose: Pose = { pos: [0, 0, 0], rot: [0, 0, 0, 0] };
@@ -102,24 +113,32 @@ export class RealtimeClient {
 
   initialize(ws: WSContext<WebSocket>) {
     if (this._ws) throw new Error("Client is already initialized");
+    this._ws = ws;
     if (this.isClosing || this.isClosed)
       throw new Error("Client is closing or closed");
     debug(`client [${this.id}] joined`);
-    this._ws = ws;
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
   }
 
   scheduleTimeout(cb: () => void, timeoutMs: number) {
-    this.intervals.push(setTimeout(cb, timeoutMs));
+    const task = new ScheduledTask(
+      setTimeout(() => {
+        this.timeouts.delete(task);
+        cb();
+      }, timeoutMs)
+    );
+    this.intervals.add(task);
   }
 
   scheduleInterval(cb: () => void, intervalMs: number) {
-    this.intervals.push(setInterval(cb, intervalMs));
+    const task = new ScheduledTask(setInterval(() => cb(), intervalMs));
+    this.timeouts.add(task);
   }
 
   release() {
     debug(`client [${this.id}] leaved`);
-    this.intervals.forEach(clearInterval);
+    this.intervals.forEach((i) => clearInterval(i.timeout));
+    this.timeouts.forEach((i) => clearTimeout(i.timeout));
     if (this.room) RealtimeRoom.leave(this.room?.id, this);
     this.ws.close();
   }
@@ -169,6 +188,16 @@ export class RealtimeClient {
         break;
       }
       case ClientEvent.Pong: {
+        break;
+      }
+      case ClientEvent.Audio: {
+        try {
+          const { pcm } = AudioPacketSchema.parse(data);
+          // TODO: playAudio 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
+          playAudio(Buffer.from(pcm, "base64"));
+        } catch (e) {
+          this.send(ServerEvent.Error, { message: "invalid params at Audio" });
+        }
         break;
       }
       case ClientEvent.LoadGLTFOK: {
@@ -269,7 +298,7 @@ export function realtimeHandler(): WSEvents<WebSocket> {
   return {
     onOpen(_event, ws) {
       rtClient.initialize(ws);
-      rtClient.scheduleInterval(() => {
+      rtClient.scheduleTimeout(() => {
         ws.send(
           JSON.stringify({
             type: "LoadGLTF",
@@ -280,7 +309,7 @@ export function realtimeHandler(): WSEvents<WebSocket> {
             },
           })
         );
-      }, 5_000);
+      }, 1_000);
     },
 
     async onMessage(event, _ws) {
