@@ -24,17 +24,17 @@ public class MultiRuntimeLoader : MonoBehaviour
 
     private void Update()
     {
-        // 本地測試功能 (保留給你自己除錯用)
-        if (Keyboard.current != null)
-        {
-            if (Keyboard.current.dKey.wasPressedThisFrame) SpawnOneAtRandomPosition();
-        }
+        //// 本地測試功能 (保留給你自己除錯用)
+        //if (Keyboard.current != null)
+        //{
+        //    if (Keyboard.current.dKey.wasPressedThisFrame) SpawnOneAtRandomPosition();
+        //}
     }
 
     // ==========================================
     // 【整合關鍵】給 WebSocket 呼叫的入口
     // ==========================================
-    public void LoadFromScript(string newUrl)
+    public void LoadFromScript(string newId, string newName, string newUrl)
     {
         Debug.Log($"[系統指令] WebSocket 請求下載: {newUrl}");
 
@@ -42,23 +42,23 @@ public class MultiRuntimeLoader : MonoBehaviour
         publicModelUrl = newUrl;
 
         // 執行生成
-        SpawnOneAtRandomPosition();
+        SpawnOneAtRandomPosition(newId, newName, newUrl);
     }
 
     // ==========================================
     // 生成邏輯
     // ==========================================
-    public void SpawnOneAtRandomPosition()
+    public void SpawnOneAtRandomPosition(string newId, string newName, string newUrl)
     {
         Vector3 randomPos = new Vector3(
             Random.Range(-spawnRadius, spawnRadius),
             0,
             Random.Range(-spawnRadius, spawnRadius)
         );
-        LoadModel(publicModelUrl, randomPos);
+        LoadModel(newId, newName, newUrl, randomPos);
     }
 
-    private async void LoadModel(string url, Vector3 position)
+    private async void LoadModel(string newId, string newName, string url, Vector3 position)
     {
         if (string.IsNullOrEmpty(url)) return;
 
@@ -67,7 +67,7 @@ public class MultiRuntimeLoader : MonoBehaviour
 
         if (success)
         {
-            GameObject modelObj = new GameObject($"AI_Model_{Time.frameCount}");
+            GameObject modelObj = new GameObject($"AI_Model_{newName}_{newId}");
             modelObj.transform.position = position;
             await gltf.InstantiateMainSceneAsync(modelObj.transform);
 

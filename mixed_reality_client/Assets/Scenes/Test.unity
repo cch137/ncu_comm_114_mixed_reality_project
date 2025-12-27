@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 443530699}
   - component: {fileID: 443530698}
+  - component: {fileID: 443530700}
   m_Layer: 0
   m_Name: ModelManager
   m_TagString: Untagged
@@ -164,6 +165,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &443530700
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6b0ba47c06b81d49936d8e794c268a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MultiRuntimeLoader
+  publicModelUrl: https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb
+  spawnRadius: 2
 --- !u!1 &816570066
 GameObject:
   m_ObjectHideFlags: 0
@@ -383,6 +398,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TestConnection
   serverUrl: wss://40001.cch137.com/mr-realtime
+  autoReconnect: 1
 --- !u!4 &1270294274
 Transform:
   m_ObjectHideFlags: 0
