@@ -1,6 +1,7 @@
 // test/workflows/object-designer.test.ts
 import path from "path";
 import { mkdir, readFile, writeFile, stat } from "fs/promises";
+import { encode } from "cbor-x";
 import {
   extractCodeFromMarkdown,
   executeCodeAndExportGltf,
@@ -35,13 +36,19 @@ describe("workflows/object-designer", () => {
       "workflows",
       "object-designer"
     );
-    const outFile = path.join(outDir, "teapot.gltf");
+    const outFile1 = path.join(outDir, "teapot.gltf");
+    const outFile2 = path.join(outDir, "teapot.gltf.cbor");
 
     await mkdir(outDir, { recursive: true });
-    await writeFile(outFile, JSON.stringify(gltf, null, 2), "utf8");
+    await writeFile(outFile1, JSON.stringify(gltf, null, 2), "utf8");
+    await writeFile(outFile2, encode(gltf), "binary");
 
-    const s = await stat(outFile);
-    expect(s.isFile()).toBe(true);
-    expect(s.size).toBeGreaterThan(0);
+    const s1 = await stat(outFile1);
+    expect(s1.isFile()).toBe(true);
+    expect(s1.size).toBeGreaterThan(0);
+
+    const s2 = await stat(outFile2);
+    expect(s2.isFile()).toBe(true);
+    expect(s2.size).toBeGreaterThan(0);
   });
 });

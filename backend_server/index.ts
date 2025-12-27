@@ -10,9 +10,9 @@ dotenv();
 
 import dss from "./services/dss";
 import objectDesigner from "./routers/object-designer";
+import { realtimeHandler } from "./services/realtime/connection";
 
 const debug = createDebug("server");
-const wsDebug = debug.extend("ws");
 
 const app = new Hono();
 
@@ -57,23 +57,7 @@ app.get("/", (c) => {
   return c.json({ status: "OK" });
 });
 
-app.get(
-  "/mr-realtime",
-  upgradeWebSocket((c) => {
-    return {
-      onOpen(event, ws) {
-        wsDebug("Node.js WS connected");
-      },
-      onMessage(event, ws) {
-        wsDebug(`Message: ${event.data}`);
-        ws.send("Pong from Node!");
-      },
-      onClose(event, ws) {
-        wsDebug("Disconnected");
-      },
-    };
-  })
-);
+app.get("/mr-realtime", upgradeWebSocket(realtimeHandler));
 
 app.onError((err, c) => {
   debug("app error:", err);
