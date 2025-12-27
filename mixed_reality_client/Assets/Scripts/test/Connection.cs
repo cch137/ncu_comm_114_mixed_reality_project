@@ -84,7 +84,7 @@ public class Connection : MonoBehaviour
                         {
                             if (MultiRuntimeLoader.Instance != null)
                             {
-                                MultiRuntimeLoader.Instance.LoadFromScript(id,name,url);
+//                                MultiRuntimeLoader.Instance.LoadFromScript(id,name,url);
                             }
                             else
                             {

@@ -1,53 +1,44 @@
 using UnityEngine;
-using System.Collections;
 using GLTFast;
 using System.Threading.Tasks;
-using UnityEngine.InputSystem; // 引用新版輸入系統
 
 public class MultiRuntimeLoader : MonoBehaviour
 {
-    // 單例模式：讓別的腳本可以找到我
     public static MultiRuntimeLoader Instance;
 
     [Header("測試設定")]
-    [Tooltip("手動測試用的網址 (按 D 生成)")]
-    public string publicModelUrl = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb";
-
     [Tooltip("生成半徑")]
     public float spawnRadius = 2.0f;
 
-    private void Awake()
+    private void Start()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (NetworkManager.Instance != null)
+        {
+            // 正確寫法：只寫方法名稱，不要加括號 ()
+            NetworkManager.Instance.OnLoadGLTF += OnGLTFReceived;
+        }
     }
 
-    private void Update()
+    private void OnGLTFReceived(GLTFData payload)
     {
-        //// 本地測試功能 (保留給你自己除錯用)
-        //if (Keyboard.current != null)
-        //{
-        //    if (Keyboard.current.dKey.wasPressedThisFrame) SpawnOneAtRandomPosition();
-        //}
+        Debug.Log($"[事件接收] 收到生成請求: {payload.url}");
+
+        // 這裡再去呼叫生成邏輯
+        SpawnOneAtRandomPosition(payload.id, payload.name, payload.url);
+        SendLoadSuccess(payload.id);
     }
 
-    // ==========================================
-    // 【整合關鍵】給 WebSocket 呼叫的入口
-    // ==========================================
-    public void LoadFromScript(string newId, string newName, string newUrl)
-    {
-        Debug.Log($"[系統指令] WebSocket 請求下載: {newUrl}");
+    //// ==========================================
+    //// 給 WebSocket 呼叫的入口
+    //// ==========================================
+    //public void LoadFromScript(string newId, string newName, string newUrl)
+    //{
+    //    Debug.Log($"[系統指令] WebSocket 請求下載: {newUrl}");
 
-        // 更新 Inspector 方便觀察
-        publicModelUrl = newUrl;
+    //    // 直接把參數往下傳，不需要存到全域變數
+    //    SpawnOneAtRandomPosition(newId, newName, newUrl);
+    //}
 
-        // 執行生成
-        SpawnOneAtRandomPosition(newId, newName, newUrl);
-    }
-
-    // ==========================================
-    // 生成邏輯
-    // ==========================================
     public void SpawnOneAtRandomPosition(string newId, string newName, string newUrl)
     {
         Vector3 randomPos = new Vector3(
@@ -84,7 +75,22 @@ public class MultiRuntimeLoader : MonoBehaviour
         }
         else
         {
-            Debug.LogError($"[RuntimeLoader] 下載失敗: {url}");
+            Debug.LogError($"[MultiRuntimeLoader] 下載失敗: {url}");
+        }
+    }
+
+    public void SendLoadSuccess(string modelId)
+    {
+        // 1. 準備資料
+        GLTFResultData data = new GLTFResultData();
+        data.id = modelId;
+
+        // 2. 發送！
+        // 寫法：Send<資料類別>("事件名稱", 資料物件)
+        if (NetworkManager.Instance != null)
+        {
+            NetworkManager.Instance.Send<GLTFResultData>("LoadGLTFOK", data);
+            Debug.Log($"已通知 Server 模型載入完成: {data}");
         }
     }
 }
