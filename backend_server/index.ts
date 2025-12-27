@@ -8,6 +8,7 @@ import { realtimeHandler } from "./services/realtime/connection";
 import dss from "./routers/dss";
 import monitor from "./routers/monitor";
 import objectDesigner from "./routers/object-designer";
+export * as objg from "./services/workflows/object-move";
 
 const log = debug("server");
 
