@@ -1,11 +1,11 @@
 // app.ts
 import { Hono } from "hono";
-import createDebug from "debug";
+import debug from "debug";
 
 import { stringifyError } from "../lib/utils/error-handle";
 
-const dssDebug = createDebug("dss");
-const dssBodyDebug = dssDebug.extend("body");
+const log = debug("dss");
+const bodyLog = log.extend("body");
 
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 60 minutes
 const INACTIVITY_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -134,7 +134,7 @@ dss.post("/data/:id", async (c) => {
   let body: unknown;
   try {
     body = await c.req.json();
-    dssBodyDebug(body);
+    bodyLog(body);
   } catch {
     return c.json({ error: "Invalid JSON" }, 400);
   }

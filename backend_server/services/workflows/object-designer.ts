@@ -1,7 +1,7 @@
 import path from "path";
 import { readFile } from "fs/promises";
 import { EventEmitter } from "events";
-import createDebug from "debug";
+import debug from "debug";
 import { Worker } from "worker_threads";
 import { generateText, type LanguageModel } from "ai";
 import { transpile, ModuleKind, ScriptTarget } from "typescript";
@@ -47,7 +47,7 @@ export enum Status {
   FAILED = "failed",
 }
 
-const debug = createDebug("obj-dsgn");
+const log = debug("obj-dsgn");
 
 async function loadInstructionsTemplate<T = {}>(name: string) {
   const filePath = path.resolve(
@@ -223,9 +223,7 @@ export class ObjectGenerationTask extends EventEmitter<{
     this.id = crypto.randomUUID();
     this.vmTimeoutMs = vmTimeoutMs;
     ObjectGenerationTask.record.set(this.id, this);
-    debug(
-      `task[${this.id}] queued for object '${this.objectProps.object_name}'`
-    );
+    log(`task[${this.id}] queued for object '${this.objectProps.object_name}'`);
   }
 
   private get status() {
@@ -237,7 +235,7 @@ export class ObjectGenerationTask extends EventEmitter<{
     const oldStatus = this._status;
     this._status = status;
     this.emit("statusChange", status, oldStatus);
-    debug(`task[${this.id}] status changed from '${oldStatus}' to '${status}'`);
+    log(`task[${this.id}] status changed from '${oldStatus}' to '${status}'`);
   }
 
   getState(): ObjectGenerationState {
