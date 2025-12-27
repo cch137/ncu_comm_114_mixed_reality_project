@@ -3,9 +3,9 @@ import { createNodeWebSocket } from "@hono/node-ws";
 import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { serveStatic } from "@hono/node-server/serve-static";
-import createDebug from "debug";
+import debug from "debug";
 
-const debug = createDebug("server");
+const log = debug("server");
 
 export const app = new Hono();
 
@@ -28,7 +28,7 @@ app.use("*", async (c, next) => {
   const status = c.res.status;
   const contentLength = c.res.headers.get("content-length") ?? "0";
 
-  debug(`${method} ${status} ${url} (${contentLength}b) (${ms}ms) ${ip}`);
+  log(`${method} ${status} ${url} (${contentLength}b) (${ms}ms) ${ip}`);
 });
 
 app.use(
@@ -50,7 +50,7 @@ const port =
   (process.env.PORT && Number.parseInt(process.env.PORT, 10)) || 3000;
 
 export const server = serve({ fetch: app.fetch, port }, (info) => {
-  debug(`online @ http://localhost:${info.port}`);
+  log(`online @ http://localhost:${info.port}`);
 });
 
 injectWebSocket(server);

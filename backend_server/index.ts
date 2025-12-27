@@ -1,5 +1,5 @@
 import { config as dotenv } from "dotenv";
-import createDebug from "debug";
+import debug from "debug";
 
 dotenv();
 
@@ -9,7 +9,7 @@ import dss from "./routers/dss";
 import monitor from "./routers/monitor";
 import objectDesigner from "./routers/object-designer";
 
-const debug = createDebug("server");
+const log = debug("server");
 
 app.route("", dss);
 app.route("/monitor/", monitor);
@@ -22,16 +22,16 @@ app.get("/", (c) => {
 app.get("/mr-realtime", upgradeWebSocket(realtimeHandler));
 
 app.onError((err, c) => {
-  debug("app error:", err);
+  log("app error:", err);
   return c.text("Service Unavailable", 503);
 });
 
 process.on("uncaughtException", (error) => {
-  debug("uncaughtException:", error);
+  log("uncaughtException:", error);
 });
 
 process.on("unhandledRejection", (error) => {
-  debug("unhandledRejection:", error);
+  log("unhandledRejection:", error);
 });
 
 export default app;

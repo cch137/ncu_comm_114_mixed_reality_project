@@ -1,9 +1,9 @@
-import createDebug from "debug";
+import debug from "debug";
 import type { WSEvents, WSContext } from "hono/ws";
 import { z } from "zod";
 import { playAudio } from "./audio";
 
-const debug = createDebug("rltm");
+const log = debug("rltm");
 
 function generateRandomId(): string {
   const hex = crypto.randomUUID().replace(/-/g, "");
@@ -116,7 +116,7 @@ export class RealtimeClient {
     this._ws = ws;
     if (this.isClosing || this.isClosed)
       throw new Error("Client is closing or closed");
-    debug(`client [${this.id}] joined`);
+    log(`client [${this.id}] joined`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
   }
 
@@ -136,7 +136,7 @@ export class RealtimeClient {
   }
 
   release() {
-    debug(`client [${this.id}] leaved`);
+    log(`client [${this.id}] leaved`);
     this.intervals.forEach((i) => clearInterval(i.timeout));
     this.timeouts.forEach((i) => clearTimeout(i.timeout));
     if (this.room) RealtimeRoom.leave(this.room?.id, this);
@@ -145,7 +145,7 @@ export class RealtimeClient {
 
   send(type: ServerEvent, data?: any) {
     this.ws.send(JSON.stringify({ type, data }));
-    debug(`sending to [${this.id}] ${this.name}: ${type}`);
+    log(`sending to [${this.id}] ${this.name}: ${type}`);
   }
 
   protected room: RealtimeRoom | null = null;
@@ -161,7 +161,7 @@ export class RealtimeClient {
   }
 
   handleMessage(type: ClientEvent | string, data: unknown) {
-    debug(`client [${this.id}]: (${type})`, data);
+    log(`client [${this.id}]: (${type})`, data);
     this.lastReceivedAtMs = Date.now();
     switch (type) {
       case ClientEvent.HeadPose: {
@@ -299,16 +299,11 @@ export function realtimeHandler(): WSEvents<WebSocket> {
     onOpen(_event, ws) {
       rtClient.initialize(ws);
       rtClient.scheduleTimeout(() => {
-        ws.send(
-          JSON.stringify({
-            type: "LoadGLTF",
-            data: {
-              id: generateRandomId(),
-              name: "茶壺",
-              url: "https://40001.cch137.com/output/workflows/object-designer/teapot.gltf",
-            },
-          })
-        );
+        rtClient.send(ServerEvent.LoadGLTF, {
+          id: generateRandomId(),
+          name: "茶壺",
+          url: "https://40001.cch137.com/output/workflows/object-designer/teapot.gltf",
+        });
       }, 1_000);
     },
 
@@ -322,7 +317,7 @@ export function realtimeHandler(): WSEvents<WebSocket> {
           ? JSON.parse(new TextDecoder().decode(event.data))
           : null;
       if (!isValidPacket(parsed)) {
-        return debug(`client [${rtClient.id}] sent an invalid packet.`);
+        return log(`client [${rtClient.id}] sent an invalid packet.`);
       }
       rtClient.handleMessage(parsed.type, parsed.data);
     },
