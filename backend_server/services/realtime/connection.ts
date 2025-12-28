@@ -1,7 +1,7 @@
 import debug from "debug";
 import { WSEvents, WSContext } from "hono/ws";
 import { z } from "zod";
-import { serverAudioPlayer } from "./audio";
+import { serverMic, serverSpeaker } from "./audio";
 import {
   AnchorState,
   EntityController,
@@ -13,6 +13,7 @@ import {
 } from "./entities";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
+export * as Assistant from "./assistant";
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
 
@@ -138,6 +139,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     return this._ws;
   }
 
+  private speakerCallback = (pcm: Buffer<ArrayBufferLike>) => {
+    this.send(ServerEvent.Audio, { pcm: pcm.toString("base64") });
+  };
+
   initialize(ws: WSContext<WebSocket>) {
     if (this._ws) {
       if (this._ws === ws) return;
@@ -148,6 +153,8 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     this._ws = ws;
     log(`client [${this.id}] connected`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
+    // 這裡是暫時性的接上 serverSpeaker
+    serverSpeaker.subscribe(this.speakerCallback);
   }
 
   scheduleTimeout(cb: () => void, timeoutMs: number) {
@@ -178,6 +185,8 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     this.intervals.forEach((i) => clearInterval(i.timeout));
     this.timeouts.forEach((i) => clearTimeout(i.timeout));
     if (this[CLIENT_ROOM]) RealtimeRoom.leave(this[CLIENT_ROOM]?.id, this);
+    // 這裡是暫時性的接上 serverSpeaker
+    serverSpeaker.unsubscribe(this.speakerCallback);
   }
 
   private send(type: ServerEvent, data?: any) {
@@ -316,8 +325,8 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
       case ClientEvent.Audio: {
         try {
           const { pcm } = AudioPacketSchema.parse(data);
-          // TODO: serverAudioPlayer 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
-          serverAudioPlayer.play(Buffer.from(pcm, "base64"));
+          // TODO: serverMic 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
+          serverMic.play(Buffer.from(pcm, "base64"));
         } catch (e) {
           this.sendError("invalid Audio params");
         }
