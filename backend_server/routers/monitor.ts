@@ -3,7 +3,7 @@ import { WSContext } from "hono/ws";
 import debug from "debug";
 
 import { upgradeWebSocket } from "../server";
-import { subscribeAudio } from "../services/realtime/audio";
+import { serverAudioPlayer } from "../services/realtime/audio";
 
 const log = debug("monitor");
 
@@ -11,9 +11,13 @@ const monitor = new Hono();
 
 const clients = new Set<WSContext<WebSocket>>();
 
-subscribeAudio((buffer) => {
+serverAudioPlayer.subscribe((pcm) => {
   for (const client of clients) {
-    client.send(new Uint8Array(buffer));
+    try {
+      client.send(new Uint8Array(pcm));
+    } catch (err) {
+      log("audio sending error:", err);
+    }
   }
 });
 
@@ -33,10 +37,10 @@ monitor.get(
         log(`[${id}] disconnected`);
       },
       onError(_evt, _ws) {
-        log(`[${id}] error`);
+        log(`[${id}] an error occurred`);
       },
       onMessage(_evt, _ws) {
-        log(`[${id}] message`);
+        log(`[${id}] sent a message`);
       },
     };
   })

@@ -1,6 +1,4 @@
-import debug from "debug";
-
-const log = debug("audio");
+import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 
 export function* chunkPcmBufferRandomDurations(
   buffer: Buffer,
@@ -23,22 +21,14 @@ export function* chunkPcmBufferRandomDurations(
   }
 }
 
-const subscribers = new Set<(buffer: Buffer) => void>();
+class AudioPlayer extends ProtectedTinyNotifier<Buffer> {
+  constructor() {
+    super();
+  }
 
-export function subscribeAudio(cb: (buffer: Buffer) => void) {
-  subscribers.add(cb);
-}
-
-export function unsubscribeAudio(cb: (buffer: Buffer) => void) {
-  subscribers.delete(cb);
-}
-
-export function playAudio(fileBuffer: Buffer) {
-  for (const subscriber of subscribers) {
-    try {
-      subscriber(fileBuffer);
-    } catch (error) {
-      log("audio subscriber error:", error);
-    }
+  play(pcm: Buffer) {
+    return this.notify(pcm);
   }
 }
+
+export const serverAudioPlayer = new AudioPlayer();

@@ -1,4 +1,3 @@
-// main.js
 (async () => {
   const startButton = document.getElementById("start-btn");
   if (!startButton) throw new Error("start button not found");
@@ -7,20 +6,12 @@
 
   const url = `${location.origin.replace(/^http/, "ws")}/monitor/audio`;
 
-  function updateStatus(text) {
-    startButton.textContent = text;
-  }
-
-  function start() {
+  async function start() {
     startButton.disabled = true;
-    updateStatus("Connecting...");
-    connect();
+    await connect();
   }
 
-  function connect() {
-    const ws = new WebSocket(url);
-    ws.binaryType = "arraybuffer";
-
+  async function connect(isReconnect = false) {
     // PCM spec (must match server)
     const sampleRate = 16000;
     const channels = 1;
@@ -28,16 +19,44 @@
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx({ sampleRate });
 
+    let isClosed = false;
+    let nextStartTime = 0;
+    let heartbeatInterval = null;
+
+    const updateStatus = (text) => {
+      if (isClosed) return;
+      startButton.textContent = text;
+    };
+
     // Some browsers require a user gesture to start audio.
     const resume = async () => {
       if (ctx.state !== "running") await ctx.resume();
     };
 
+    const reconnect = async () => {
+      if (isClosed) return;
+      isClosed = true;
+      clearInterval(heartbeatInterval);
+      ctx.close();
+      await new Promise((r) => setTimeout(r, 1_000));
+      await connect(true);
+    };
+
+    const heartbeat = () => {
+      if (isClosed) return clearInterval(heartbeatInterval);
+      ws.send(new Uint8Array([]));
+    };
+
+    const setHeartbeat = () => {
+      heartbeatInterval = setInterval(heartbeat, 20_000);
+    };
+
     window.addEventListener("pointerdown", resume, { once: true });
     window.addEventListener("keydown", resume, { once: true });
 
-    let isClosed = false;
-    let nextStartTime = 0;
+    const ws = new WebSocket(url);
+    updateStatus(isReconnect ? "Reconnecting..." : "Connecting...");
+    ws.binaryType = "arraybuffer";
 
     function pcm16leToFloat32(int16) {
       const out = new Float32Array(int16.length);
@@ -46,11 +65,12 @@
     }
 
     ws.addEventListener("open", () => {
-      updateStatus("Connected.");
+      updateStatus("Connected");
+      setHeartbeat();
     });
 
     ws.addEventListener("message", async (ev) => {
-      console.log("ws received message");
+      setHeartbeat();
 
       await resume(); // in case first audio arrives after gesture
 
@@ -77,16 +97,16 @@
       nextStartTime += buffer.duration;
     });
 
-    ws.addEventListener("error", () => {
-      isClosed = true;
-      updateStatus("Error.");
+    ws.addEventListener("error", async () => {
+      updateStatus("Error");
+      if (ws.readyState !== WebSocket.CLOSING || ws.readyState !== ws.CLOSED)
+        ws.close();
+      await reconnect();
     });
 
-    ws.addEventListener("close", () => {
-      isClosed = true;
-      updateStatus("Disconnected.");
-      ctx.close();
-      connect();
+    ws.addEventListener("close", async () => {
+      updateStatus("Disconnected");
+      await reconnect();
     });
   }
 })();
