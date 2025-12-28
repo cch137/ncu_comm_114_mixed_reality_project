@@ -13,7 +13,11 @@ const clients = new Set<WSContext<WebSocket>>();
 
 subscribeAudio((buffer) => {
   for (const client of clients) {
-    client.send(new Uint8Array(buffer));
+    try {
+      client.send(new Uint8Array(buffer));
+    } catch (err) {
+      log("audio sending error:", err);
+    }
   }
 });
 
@@ -33,10 +37,10 @@ monitor.get(
         log(`[${id}] disconnected`);
       },
       onError(_evt, _ws) {
-        log(`[${id}] error`);
+        log(`[${id}] an error occurred`);
       },
       onMessage(_evt, _ws) {
-        log(`[${id}] message`);
+        log(`[${id}] sent a message`);
       },
     };
   })
