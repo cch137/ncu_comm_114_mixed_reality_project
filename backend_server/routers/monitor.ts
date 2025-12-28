@@ -39,7 +39,16 @@ monitor.get(
       onError(_evt, _ws) {
         log(`[${id}] an error occurred`);
       },
-      onMessage(_evt, _ws) {
+      async onMessage(event, _ws) {
+        const buffer =
+          typeof event.data === "string"
+            ? Buffer.from(event.data, "binary")
+            : event.data instanceof Blob
+            ? Buffer.from(await event.data.bytes())
+            : event.data instanceof ArrayBuffer
+            ? Buffer.from(event.data)
+            : null;
+        if (buffer) serverAudioPlayer.play(buffer);
         log(`[${id}] sent a message`);
       },
     };
