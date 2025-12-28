@@ -1,7 +1,4 @@
-import debug from "debug";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
-
-const log = debug("audio");
 
 export function* chunkPcmBufferRandomDurations(
   buffer: Buffer,
