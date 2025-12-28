@@ -128,6 +128,11 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 443530699}
+  - component: {fileID: 443530705}
+  - component: {fileID: 443530704}
+  - component: {fileID: 443530703}
+  - component: {fileID: 443530702}
+  - component: {fileID: 443530701}
   - component: {fileID: 443530700}
   m_Layer: 0
   m_Name: ModelManager
@@ -160,10 +165,69 @@ MonoBehaviour:
   m_GameObject: {fileID: 443530697}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c6b0ba47c06b81d49936d8e794c268a6, type: 3}
+  m_Script: {fileID: 11500000, guid: 3c6ac9d43e764e3488dd6d1afd29c650, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MultiRuntimeLoader
-  spawnRadius: 2
+  m_EditorClassIdentifier: Assembly-CSharp::DeleteObj
+--- !u!114 &443530701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec91a59a08cf8484ca46c84926a93fa5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UpdateState
+--- !u!114 &443530702
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfcdffda29bfc2b44b350bb6a1dc388f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreateProgObj
+--- !u!114 &443530703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 451f73b2a3f9dca418089bce816389f9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreateGeomObj
+--- !u!114 &443530704
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bc8ff0a80a63fb439383693902cbd62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreateAnchorObj
+--- !u!114 &443530705
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dd8bb83bcf1cda40b3d135ab8b96291, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntityManager
 --- !u!1 &816570066
 GameObject:
   m_ObjectHideFlags: 0
@@ -335,7 +399,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b06f7a64bc6c9c44f91df2af278daab9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoomManager
-  roomID: 101
+  desireRoomID: 101
 --- !u!1 &990448261
 GameObject:
   m_ObjectHideFlags: 0
@@ -483,6 +547,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1270294274}
   - component: {fileID: 1270294275}
+  - component: {fileID: 1270294276}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -519,8 +584,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NetworkManager
   serverUrl: wss://40001.cch137.com/mr-realtime
   autoReconnect: 1
-<<<<<<< HEAD
-=======
+  _logger: {fileID: 1270294276}
+--- !u!114 &1270294276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1270294272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e73858d16a4753545aca2fc0b08310b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLogger
+  ShowReceiveDetails: 0
+  ShowSendDetails: 0
 --- !u!1 &1566580974
 GameObject:
   m_ObjectHideFlags: 0
@@ -601,7 +679,6 @@ MonoBehaviour:
   leftHand: {fileID: 0}
   rightHand: {fileID: 0}
   syncRate: 0.1
->>>>>>> 33eb6ef (Event_1227)
 --- !u!1 &2005679857
 GameObject:
   m_ObjectHideFlags: 0
@@ -647,8 +724,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioSender
   sampleRate: 16000
+  micVolume: 1
+  sendInterval: 0.1
   showDebugLog: 1
-  isTransmitting: 0
 --- !u!1 &2110856966
 GameObject:
   m_ObjectHideFlags: 0
@@ -712,6 +790,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 484b43b42c271704aa04e985aa5655d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  sampleRate: 16000
+  bufferThreshold: 1600
 --- !u!82 &2147160503
 AudioSource:
   m_ObjectHideFlags: 0
@@ -834,3 +914,4 @@ SceneRoots:
   - {fileID: 1270294274}
   - {fileID: 973601649}
   - {fileID: 2110856967}
+  - {fileID: 1566580975}
