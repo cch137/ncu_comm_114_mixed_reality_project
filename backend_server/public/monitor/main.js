@@ -86,6 +86,53 @@
     setMicEnabled(false);
     setMicUi();
 
+    const SEND_INTERVAL_MS = 250;
+
+    let sendTimer = null;
+    /** @type {ArrayBuffer[]} */
+    let pendingChunks = [];
+    let pendingBytes = 0;
+
+    function enqueuePcm16(pcm16Buffer) {
+      // pcm16Buffer: ArrayBuffer (Int16Array.buffer)
+      if (!isMicOn) return;
+      if (ws.readyState !== WebSocket.OPEN) return;
+
+      pendingChunks.push(pcm16Buffer);
+      pendingBytes += pcm16Buffer.byteLength;
+    }
+
+    function flushAudio() {
+      if (!isMicOn) return;
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (pendingBytes === 0) return;
+
+      // Concatenate all pending chunks into one ArrayBuffer
+      const out = new Uint8Array(pendingBytes);
+      let offset = 0;
+      for (const ab of pendingChunks) {
+        out.set(new Uint8Array(ab), offset);
+        offset += ab.byteLength;
+      }
+
+      pendingChunks = [];
+      pendingBytes = 0;
+
+      ws.send(out.buffer);
+    }
+
+    function startSendLoop() {
+      if (sendTimer) return;
+      sendTimer = setInterval(flushAudio, SEND_INTERVAL_MS);
+    }
+
+    function stopSendLoop() {
+      if (sendTimer) clearInterval(sendTimer);
+      sendTimer = null;
+      pendingChunks = [];
+      pendingBytes = 0;
+    }
+
     function pcm16leToFloat32(int16) {
       const out = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) out[i] = int16[i] / 0x8000;
@@ -124,7 +171,7 @@
 
     async function startMic() {
       if (isMicOn) return;
-      if (ws.readyState !== WebSocket.OPEN) return; // only allow after WS open
+      if (ws.readyState !== WebSocket.OPEN) return;
 
       await resume();
       await ensureWorklet();
@@ -150,12 +197,13 @@
         if (ws.readyState !== WebSocket.OPEN) return;
         const float32 = ev.data; // Float32Array
         const pcm16 = float32ToPcm16le(float32);
-        ws.send(pcm16.buffer);
+        enqueuePcm16(pcm16.buffer);
       };
 
       micSource.connect(workletNode);
 
       isMicOn = true;
+      startSendLoop();
       setMicUi();
     }
 
@@ -166,6 +214,8 @@
       }
 
       isMicOn = false;
+
+      stopSendLoop();
 
       if (workletNode) {
         try {
