@@ -7,6 +7,9 @@ import {
   EntityController,
   EntityState,
   EntityStateUpdateEvent,
+  EntityStateUpdateEventType,
+  EntityType,
+  ProgrammableObjectState,
 } from "./entities";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
@@ -20,7 +23,11 @@ export enum ServerEvent {
   Error = "Error",
   Ping = "Ping",
   Pong = "Pong",
-  LoadGLTF = "LoadGLTF",
+  CreateEntityProgObj = "CreateEntityProgObj",
+  CreateEntityGeomObj = "CreateEntityGeomObj",
+  CreateEntityAnchor = "CreateEntityAnchor",
+  UpdateEntity = "UpdateEntity",
+  DelEntity = "DelEntity",
   Audio = "Audio",
   JoinRoomOK = "JoinRoomOK",
   JoinRoomError = "JoinRoomError",
@@ -35,7 +42,6 @@ export enum ClientEvent {
   StartAudio = "StartAudio",
   Audio = "Audio",
   EndAudio = "EndAudio",
-  LoadGLTFOK = "LoadGLTFOK",
   Poses = "Poses",
   HeadPose = "HeadPose",
   HandsPose = "HandsPose",
@@ -95,21 +101,22 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
 
   private _ws?: WSContext<WebSocket>;
   readonly id = generateRandomId();
-  name = `Client_${++RealtimeClient._internalCounter}`;
+  // 在未來這個屬性應該允許被更改，但是目前它是 readonly 的狀態。
+  readonly name = `Client_${++RealtimeClient._internalCounter}`;
 
   protected readonly heartbeatMs: number;
   protected readonly intervals = new Set<ScheduledTask>();
   protected readonly timeouts = new Set<ScheduledTask>();
-  protected readonly loadedObjectIds = new Set<string>();
 
   readonly controller = new EntityController();
 
-  // 我們把頭、雙手看作是 anchor，它是一個 entity，
+  // 我們把頭、雙手都看作是 anchor，各是一個 entity，
   // 在加入場景時會綁定到場景的 entity 管理。
   readonly head = new AnchorState();
   readonly leftHand = new AnchorState();
   readonly rightHand = new AnchorState();
 
+  private isDestroyed = false;
   protected lastReceivedAtMs: number = Date.now();
 
   constructor(options: RealtimeClientOptions = {}) {
@@ -126,37 +133,25 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     }
   }
 
-  get ws() {
+  private get ws() {
     if (!this._ws) throw new Error("Client is not initialized");
     return this._ws;
   }
 
-  get isConnecting() {
-    return !this.ws.raw || this.ws.raw.readyState === this.ws.raw.CONNECTING;
-  }
-
-  get isConnected() {
-    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.OPEN;
-  }
-
-  get isClosing() {
-    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.CLOSING;
-  }
-
-  get isClosed() {
-    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.CLOSED;
-  }
-
   initialize(ws: WSContext<WebSocket>) {
-    if (this._ws) throw new Error("Client is already initialized");
+    if (this._ws) {
+      if (this._ws === ws) return;
+      throw new Error("Client is already initialized");
+    }
     // 1 = OPEN ready state
-    if (ws.readyState !== 1) throw new Error("Client is not opened");
+    if (ws.readyState !== 1) throw new Error("Client is not in the OPEN state");
     this._ws = ws;
-    log(`client [${this.id}] joined`);
+    log(`client [${this.id}] connected`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
   }
 
   scheduleTimeout(cb: () => void, timeoutMs: number) {
+    if (this.isDestroyed) throw new Error("Client is destroyed");
     const task = new ScheduledTask(
       setTimeout(() => {
         this.timeouts.delete(task);
@@ -167,52 +162,117 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
   }
 
   scheduleInterval(cb: () => void, intervalMs: number) {
+    if (this.isDestroyed) throw new Error("Client is destroyed");
     const task = new ScheduledTask(setInterval(() => cb(), intervalMs));
     this.intervals.add(task);
   }
 
   destroy() {
+    this.isDestroyed = true;
     try {
       this.ws.close();
     } catch {
       // ignore force closing error
     }
-    log(`client [${this.id}] leaved`);
+    log(`client [${this.id}] disconnected`);
     this.intervals.forEach((i) => clearInterval(i.timeout));
     this.timeouts.forEach((i) => clearTimeout(i.timeout));
     if (this[CLIENT_ROOM]) RealtimeRoom.leave(this[CLIENT_ROOM]?.id, this);
   }
 
-  send(type: ServerEvent, data?: any) {
-    if (!this._ws?.raw || this._ws.raw.readyState !== this._ws.raw.OPEN) {
-      log("cancel sending to [${this.id}] ${this.name}: ${type}");
+  private send(type: ServerEvent, data?: any) {
+    const raw = this._ws?.raw;
+    if (!raw || raw.readyState !== 1 /* WebSocket.OPEN */) {
+      log(`send skipped: client [${this.id}] ${this.name}: ${type}`);
       return;
     }
     try {
       this.ws.send(JSON.stringify({ type, data }));
-      log(`sending to [${this.id}] ${this.name}: ${type}`);
+      log(`message sent: client [${this.id}] ${this.name}: ${type}`);
     } catch (err) {
-      log(`sending failed to [${this.id}] ${this.name}: ${type}]`);
+      log(`send failed: client [${this.id}] ${this.name}: ${type}`);
     }
   }
 
-  sendError(message: string) {
+  private sendError(message: string) {
     this.send(ServerEvent.Error, { message });
-    log(`error occured at [${this.id}]:`, message);
+    log(`error: client [${this.id}]: ${message}`);
   }
 
   [CLIENT_ROOM]: RealtimeRoom | null = null;
 
-  joinRoom(id: string) {
-    return RealtimeRoom.join(id, this);
+  isBodyPart(entity: EntityState) {
+    return (
+      entity === this.head ||
+      entity === this.leftHand ||
+      entity === this.rightHand
+    );
   }
 
-  leaveRoom(id: string) {
-    return RealtimeRoom.leave(id, this);
+  /** 在 Client 端建立一個 Entity */
+  createEntity(entity: EntityState) {
+    try {
+      if (!this[CLIENT_ROOM]?.hasEntity(entity)) return;
+      if (this.isBodyPart(entity)) return;
+      switch (entity.type) {
+        case EntityType.ProgrammableObject: {
+          this.send(ServerEvent.CreateEntityProgObj, {
+            id: entity.id,
+            pose: entity.pose,
+            gltf: { name: entity.props.object_name, url: entity.url },
+          });
+          break;
+        }
+        case EntityType.GeometryObject: {
+          this.send(ServerEvent.CreateEntityGeomObj, {
+            id: entity.id,
+            pose: entity.pose,
+          });
+          break;
+        }
+        case EntityType.Anchor: {
+          this.send(ServerEvent.CreateEntityAnchor, {
+            id: entity.id,
+            pose: entity.pose,
+          });
+          break;
+        }
+      }
+    } catch (err) {
+      log(`create entity error: client [${this.id}]: ${err}`);
+    }
+  }
+
+  /** 在 Client 更新一個 Entity 的狀態 */
+  updateEntity(entity: EntityState) {
+    try {
+      if (!this[CLIENT_ROOM]?.hasEntity(entity)) return;
+      if (this.isBodyPart(entity)) return;
+      this.send(ServerEvent.UpdateEntity, {
+        id: entity.id,
+        pose: entity.pose,
+      });
+      return;
+    } catch (err) {
+      log(`update entity error: client [${this.id}]: ${err}`);
+    }
+  }
+
+  /** 在 Client 刪除一個 Entity */
+  dropEntity(entity: EntityState) {
+    try {
+      if (!this[CLIENT_ROOM]?.hasEntity(entity)) return;
+      if (this.isBodyPart(entity)) return;
+      this.send(ServerEvent.DelEntity, { id: entity.id });
+      // 在未取得控制權的情況下，此處的調用不會對既有的控制者或目標實體產生任何影響。
+      this.controller.release(entity);
+    } catch (err) {
+      log(`drop entity error: client [${this.id}]: ${err}`);
+    }
   }
 
   handleMessage(type: ClientEvent | string, data: unknown) {
-    log(`client [${this.id}]: (${type})`);
+    log(`message received: client [${this.id}]: ${type}`);
     this.lastReceivedAtMs = Date.now();
     switch (type) {
       case ClientEvent.Poses: {
@@ -259,16 +319,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
           // TODO: serverAudioPlayer 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
           serverAudioPlayer.play(Buffer.from(pcm, "base64"));
         } catch (e) {
-          this.sendError("invalid params at Audio");
-        }
-        break;
-      }
-      case ClientEvent.LoadGLTFOK: {
-        try {
-          const { id } = ItemIdPacketSchema.parse(data);
-          this.loadedObjectIds.add(id);
-        } catch {
-          this.sendError("invalid params at LoadGLTFOK");
+          this.sendError("invalid Audio params");
         }
         break;
       }
@@ -276,10 +327,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
         try {
           const { id } = ItemIdPacketSchema.parse(data);
           if (!this[CLIENT_ROOM]?.claimEntityById(this.controller, id)) {
-            this.sendError(`Failed to claim entity "${id}"`);
+            this.sendError(`failed to claim entity "${id}"`);
           }
         } catch {
-          this.sendError("invalid params at ClaimEntity");
+          this.sendError("invalid ClaimEntity params");
         }
         break;
       }
@@ -289,10 +340,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
           if (
             !this[CLIENT_ROOM]?.updateEntityById(this.controller, id, { pose })
           ) {
-            this.sendError(`Failed to update entity "${id}"`);
+            this.sendError(`failed to update entity "${id}"`);
           }
         } catch {
-          this.sendError("invalid params at UpdateEntity");
+          this.sendError("invalid UpdateEntity params");
         }
         break;
       }
@@ -300,17 +351,17 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
         try {
           const { id } = ItemIdPacketSchema.parse(data);
           if (!this[CLIENT_ROOM]?.releaseEntityById(this.controller, id)) {
-            this.sendError(`Failed to release entity "${id}"`);
+            this.sendError(`failed to release entity "${id}"`);
           }
         } catch {
-          this.sendError("invalid params at ReleaseEntity");
+          this.sendError("invalid ReleaseEntity params");
         }
         break;
       }
       case ClientEvent.JoinRoom: {
         try {
           const { id } = ItemIdPacketSchema.parse(data);
-          this.joinRoom(id);
+          RealtimeRoom.join(id, this);
           this.send(ServerEvent.JoinRoomOK, { id });
         } catch {
           this.send(ServerEvent.JoinRoomError, { reason: "invalid params" });
@@ -320,7 +371,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
       case ClientEvent.LeaveRoom: {
         try {
           const { id } = ItemIdPacketSchema.parse(data);
-          this.leaveRoom(id);
+          RealtimeRoom.leave(id, this);
           this.send(ServerEvent.LeaveRoomOK, { id });
         } catch {
           this.send(ServerEvent.LeaveRoomError, { reason: "invalid params" });
@@ -343,7 +394,16 @@ class RealtimeRoom {
   static join(id: string, client: RealtimeClient) {
     let room = RealtimeRoom.get(id);
     if (!room) {
+      // 當創建新房間時，我們為他們添加一個破茶壺。
+      const teapot = new ProgrammableObjectState({
+        props: {
+          object_name: "Teapot",
+          object_description: "A default object used for testing.",
+        },
+        url: "https://40001.cch137.com/output/workflows/object-designer/teapot.gltf",
+      });
       room = new RealtimeRoom(id);
+      room.addEntity(teapot);
       RealtimeRoom.rooms.set(room.id, room);
     }
     room.addClient(client);
@@ -353,15 +413,17 @@ class RealtimeRoom {
   static leave(id: string, client: RealtimeClient) {
     const room = RealtimeRoom.get(id);
     if (room) {
-      const removed = room.removeClient(client);
+      room.removeClient(client);
       if (room.clients.size === 0) RealtimeRoom.rooms.delete(room.id);
-      return removed;
     }
-    return false;
   }
 
   protected readonly clients = new Set<RealtimeClient>();
   protected readonly entities = new Map<string, EntityState>();
+  protected readonly entitiesUpdateCallbacks = new WeakMap<
+    EntityState,
+    (state: EntityStateUpdateEvent) => void
+  >();
 
   private constructor(public readonly id: string) {}
 
@@ -371,23 +433,22 @@ class RealtimeRoom {
     if (prevRoomId !== null) {
       RealtimeRoom.leave(prevRoomId, client);
     }
-    this.clients.add(client);
-    this.entities.set(client.head.id, client.head);
-    this.entities.set(client.leftHand.id, client.leftHand);
-    this.entities.set(client.rightHand.id, client.rightHand);
     client[CLIENT_ROOM] = this;
+    this.clients.add(client);
+    this.addEntity(client.head);
+    this.addEntity(client.leftHand);
+    this.addEntity(client.rightHand);
+    this.entities.forEach((entity) => client.createEntity(entity));
   }
 
   private removeClient(client: RealtimeClient) {
+    this.clients.delete(client);
+    this.removeEntity(client.head);
+    this.removeEntity(client.leftHand);
+    this.removeEntity(client.rightHand);
+    this.entities.forEach((entity) => client.dropEntity(entity));
+    // 清空房間一定要放到最後才做
     if (client[CLIENT_ROOM] === this) client[CLIENT_ROOM] = null;
-    this.entities.delete(client.head.id);
-    this.entities.delete(client.leftHand.id);
-    this.entities.delete(client.rightHand.id);
-    this.entities.forEach((entity) => {
-      // 只釋放目前受控制的 entity，對目前不受控制的 entity 沒有影響。
-      client.controller.release(entity);
-    });
-    return this.clients.delete(client);
   }
 
   getEntities() {
@@ -405,12 +466,24 @@ class RealtimeRoom {
   }
 
   addEntity(entity: EntityState) {
+    if (this.entities.has(entity.id)) return;
     this.entities.set(entity.id, entity);
+    const cb = (state: EntityStateUpdateEvent) => {
+      if (state.type === EntityStateUpdateEventType.Pose) {
+        for (const c of this.clients) c.updateEntity(entity);
+      }
+    };
+    this.entitiesUpdateCallbacks.set(entity, cb);
+    entity.subscribe(cb);
+    for (const c of this.clients) c.createEntity(entity);
   }
 
   removeEntity(entity: EntityState) {
+    this.clients.forEach((client) => client.dropEntity(entity));
+    const cb = this.entitiesUpdateCallbacks.get(entity);
+    if (cb) entity.unsubscribe(cb);
+    this.entitiesUpdateCallbacks.delete(entity);
     this.entities.delete(entity.id);
-    this.clients.forEach((client) => entity.release(client.controller));
   }
 
   claimEntityById(controller: EntityController, entityId: string) {
@@ -442,22 +515,24 @@ function isValidPacket(
   return false;
 }
 
+const clientsWeakMap = new WeakMap<WSContext<WebSocket>, RealtimeClient>();
+
 export function realtimeHandler(): WSEvents<WebSocket> {
-  const rtClient = new RealtimeClient();
+  let client: RealtimeClient | null = null;
 
   return {
     onOpen(_event, ws) {
-      rtClient.initialize(ws);
-      rtClient.scheduleTimeout(() => {
-        rtClient.send(ServerEvent.LoadGLTF, {
-          id: generateRandomId(),
-          name: "茶壺",
-          url: "https://40001.cch137.com/output/workflows/object-designer/teapot.gltf",
-        });
-      }, 1_000);
+      client = clientsWeakMap.get(ws) ?? null;
+      if (!client) {
+        client = new RealtimeClient();
+        clientsWeakMap.set(ws, client);
+      }
+      client.initialize(ws);
     },
 
-    async onMessage(event, _ws) {
+    async onMessage(event, ws) {
+      client ??= clientsWeakMap.get(ws) ?? null;
+      if (!client) return log("client was unexpectedly not found");
       try {
         const parsed =
           typeof event.data === "string"
@@ -468,16 +543,18 @@ export function realtimeHandler(): WSEvents<WebSocket> {
             ? JSON.parse(new TextDecoder().decode(event.data))
             : null;
         if (!isValidPacket(parsed)) {
-          return log(`client [${rtClient.id}] sent an invalid packet.`);
+          return log(`invalid packet received: client [${client.id}]`);
         }
-        rtClient.handleMessage(parsed.type, parsed.data);
+        client.handleMessage(parsed.type, parsed.data);
       } catch {
-        return log(`client [${rtClient.id}] sent unparsable packet.`);
+        return log(`unparsable packet received: client [${client.id}]`);
       }
     },
 
-    onClose(_event, _ws) {
-      rtClient.destroy();
+    onClose(_event, ws) {
+      client ??= clientsWeakMap.get(ws) ?? null;
+      if (!client) return log("client was unexpectedly not found");
+      client.destroy();
     },
   };
 }

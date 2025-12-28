@@ -1,12 +1,13 @@
 import type { Pose } from "./connection";
+import type { ObjectProps } from "../workflows/object-designer";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
 
 export type EntityOption = {
-  /** 運行無人控制時自動取得控制權，預設為 true。 */
+  /** 允許無人控制時自動取得控制權，預設為 true。 */
   allowedAutoClaim?: boolean;
-  /** 當超過此時間後沒有更新發生，將強制釋放物件的控制權。 */
-  forceReleaseMs?: number;
+  /** 當超過此時間後沒有更新發生，將強制釋放物件的控制權，若為 null 則不釋放。預設為不釋放。 */
+  forceReleaseMs?: number | null;
 };
 
 export enum EntityType {
@@ -39,27 +40,35 @@ export class EntityController {
   }
 }
 
+export enum EntityStateUpdateEventType {
+  Claimned = "claimed",
+  Released = "released",
+  Pose = "pose",
+}
+
 export type EntityStateUpdateEvent =
   | {
-      type: "claimed";
+      type: EntityStateUpdateEventType.Claimned;
       controller: EntityController;
     }
   | {
-      type: "released";
+      type: EntityStateUpdateEventType.Released;
       controller: EntityController;
     }
   | {
-      type: "pose";
+      type: EntityStateUpdateEventType.Pose;
       pose: Pose;
     };
 
-export class EntityStateBase extends ProtectedTinyNotifier<EntityStateUpdateEvent> {
+export class EntityStateBase<
+  T extends EntityType = EntityType
+> extends ProtectedTinyNotifier<EntityStateUpdateEvent> {
   readonly id = generateRandomId();
   readonly allowedAutoClaim: boolean;
   readonly forceReleaseMs: number | null;
   private forceReleaseTimeout: NodeJS.Timeout | null = null;
 
-  constructor(public readonly type: EntityType, option: EntityOption = {}) {
+  constructor(public readonly type: T, option: EntityOption = {}) {
     super();
     this.forceReleaseMs = option.forceReleaseMs ?? null;
     this.allowedAutoClaim = option.allowedAutoClaim ?? true;
@@ -100,7 +109,7 @@ export class EntityStateBase extends ProtectedTinyNotifier<EntityStateUpdateEven
     if (this._controller !== null) return false;
     this.recordUpdate();
     this._controller = controller;
-    this.notify({ type: "claimed", controller });
+    this.notify({ type: EntityStateUpdateEventType.Claimned, controller });
     controller[CONTROLLER_ENTITY_STATES].add(this);
     this.setForceReleaseTimeout(controller);
     return true;
@@ -111,7 +120,7 @@ export class EntityStateBase extends ProtectedTinyNotifier<EntityStateUpdateEven
     if (this._controller !== controller) return false;
     this.recordUpdate();
     this._controller = null;
-    this.notify({ type: "released", controller });
+    this.notify({ type: EntityStateUpdateEventType.Released, controller });
     controller[CONTROLLER_ENTITY_STATES].delete(this);
     if (this.forceReleaseTimeout !== null) {
       clearTimeout(this.forceReleaseTimeout);
@@ -129,29 +138,37 @@ export class EntityStateBase extends ProtectedTinyNotifier<EntityStateUpdateEven
     if (this._controller !== controller) return false;
     this.recordUpdate();
     this._pose = { pos: [...pose.pos], rot: [...pose.rot] };
-    this.notify({ type: "pose", pose });
+    this.notify({ type: EntityStateUpdateEventType.Pose, pose });
     this.setForceReleaseTimeout(controller);
     return true;
   }
 }
 
-export class AnchorState extends EntityStateBase {
+export class AnchorState extends EntityStateBase<EntityType.Anchor> {
   constructor(option?: EntityOption) {
     super(EntityType.Anchor, option);
   }
 }
 
+export type ProgrammableObjectStateOption = { props: ObjectProps; url: string };
+
 // programmable object 這個命名意在它是可以透過 code 去改變形態的。
 // 但是目前只能暫存 gltf，並沒有達到它定義的完整功能（缺少修改功能）。
-export class ProgrammableObjectState extends EntityStateBase {
-  readonly gltf: object;
-  constructor(gltf: object, option?: EntityOption) {
+export class ProgrammableObjectState extends EntityStateBase<EntityType.ProgrammableObject> {
+  readonly props: ObjectProps;
+  readonly url: string;
+
+  constructor(
+    { props, url }: ProgrammableObjectStateOption,
+    option?: EntityOption
+  ) {
     super(EntityType.ProgrammableObject, option);
-    this.gltf = gltf;
+    this.props = { ...props };
+    this.url = url;
   }
 }
 
-export class GeometryObjectState extends EntityStateBase {
+export class GeometryObjectState extends EntityStateBase<EntityType.GeometryObject> {
   readonly geometry: object;
   constructor(geometry: object, option?: EntityOption) {
     super(EntityType.GeometryObject, option);
