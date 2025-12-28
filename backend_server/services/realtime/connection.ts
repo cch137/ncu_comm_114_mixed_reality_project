@@ -136,7 +136,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     // 1 = OPEN ready state
     if (ws.readyState !== 1) throw new Error("Client is not in the OPEN state");
     this._ws = ws;
-    log(`client [${this.id}] joined`);
+    log(`client [${this.id}] connected`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
   }
 
@@ -161,7 +161,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     } catch {
       // ignore force closing error
     }
-    log(`client [${this.id}] leaved`);
+    log(`client [${this.id}] disconnected`);
     this.intervals.forEach((i) => clearInterval(i.timeout));
     this.timeouts.forEach((i) => clearTimeout(i.timeout));
     if (this[CLIENT_ROOM]) RealtimeRoom.leave(this[CLIENT_ROOM]?.id, this);
@@ -169,20 +169,20 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
 
   send(type: ServerEvent, data?: any) {
     if (!this._ws?.raw || this._ws.raw.readyState !== this._ws.raw.OPEN) {
-      log("cancel sending to [${this.id}] ${this.name}: ${type}");
+      log(`send skipped: client [${this.id}] ${this.name}: ${type}`);
       return;
     }
     try {
       this.ws.send(JSON.stringify({ type, data }));
-      log(`sending to [${this.id}] ${this.name}: ${type}`);
+      log(`message sent: client [${this.id}] ${this.name}: ${type}`);
     } catch (err) {
-      log(`sending failed to [${this.id}] ${this.name}: ${type}]`);
+      log(`send failed: client [${this.id}] ${this.name}: ${type}`);
     }
   }
 
   sendError(message: string) {
     this.send(ServerEvent.Error, { message });
-    log(`error occured at [${this.id}]:`, message);
+    log(`error: client [${this.id}]: ${message}`);
   }
 
   [CLIENT_ROOM]: RealtimeRoom | null = null;
@@ -196,7 +196,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
   }
 
   handleMessage(type: ClientEvent | string, data: unknown) {
-    log(`client [${this.id}]: (${type})`);
+    log(`message received: client [${this.id}]: ${type}`);
     this.lastReceivedAtMs = Date.now();
     switch (type) {
       case ClientEvent.Poses: {
@@ -243,7 +243,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
           // TODO: serverAudioPlayer 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
           serverAudioPlayer.play(Buffer.from(pcm, "base64"));
         } catch (e) {
-          this.sendError("invalid params at Audio");
+          this.sendError("invalid Audio params");
         }
         break;
       }
@@ -252,7 +252,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
           const { id } = ItemIdPacketSchema.parse(data);
           this.loadedObjectIds.add(id);
         } catch {
-          this.sendError("invalid params at LoadGLTFOK");
+          this.sendError("invalid LoadGLTFOK params");
         }
         break;
       }
@@ -260,10 +260,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
         try {
           const { id } = ItemIdPacketSchema.parse(data);
           if (!this[CLIENT_ROOM]?.claimEntityById(this.controller, id)) {
-            this.sendError(`Failed to claim entity "${id}"`);
+            this.sendError(`failed to claim entity "${id}"`);
           }
         } catch {
-          this.sendError("invalid params at ClaimEntity");
+          this.sendError("invalid ClaimEntity params");
         }
         break;
       }
@@ -273,10 +273,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
           if (
             !this[CLIENT_ROOM]?.updateEntityById(this.controller, id, { pose })
           ) {
-            this.sendError(`Failed to update entity "${id}"`);
+            this.sendError(`failed to update entity "${id}"`);
           }
         } catch {
-          this.sendError("invalid params at UpdateEntity");
+          this.sendError("invalid UpdateEntity params");
         }
         break;
       }
@@ -284,10 +284,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
         try {
           const { id } = ItemIdPacketSchema.parse(data);
           if (!this[CLIENT_ROOM]?.releaseEntityById(this.controller, id)) {
-            this.sendError(`Failed to release entity "${id}"`);
+            this.sendError(`failed to release entity "${id}"`);
           }
         } catch {
-          this.sendError("invalid params at ReleaseEntity");
+          this.sendError("invalid ReleaseEntity params");
         }
         break;
       }
@@ -452,11 +452,11 @@ export function realtimeHandler(): WSEvents<WebSocket> {
             ? JSON.parse(new TextDecoder().decode(event.data))
             : null;
         if (!isValidPacket(parsed)) {
-          return log(`client [${rtClient.id}] sent an invalid packet.`);
+          return log(`invalid packet received: client [${rtClient.id}]`);
         }
         rtClient.handleMessage(parsed.type, parsed.data);
       } catch {
-        return log(`client [${rtClient.id}] sent unparsable packet.`);
+        return log(`unparsable packet received: client [${rtClient.id}]`);
       }
     },
 
