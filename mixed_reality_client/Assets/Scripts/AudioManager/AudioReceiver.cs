@@ -1,17 +1,25 @@
 using UnityEngine;
 using System;
-using System.Collections.Concurrent; // 記得引用這個！用來做執行緒安全的佇列
+using System.Collections.Concurrent;
 
 [RequireComponent(typeof(AudioSource))]
 public class AudioReceiver : MonoBehaviour
 {
     private AudioSource audioSource;
 
-    // 聲音緩衝區 (先進先出)
+    // 執行緒安全的佇列
     private ConcurrentQueue<float> audioQueue = new ConcurrentQueue<float>();
 
-    // 為了讓 OnAudioFilterRead 運作，AudioSource 需要播放一個「空的」Clip
-    // 這樣引擎才會一直運轉，然後我們再動態把聲音塞進去
+    [Header("音訊設定")]
+    [Tooltip("必須與 Server 錄音的取樣率一致 (例如 16000, 44100, 48000)")]
+    public int sampleRate = 16000;
+
+    [Tooltip("緩衝多少樣本才開始播放 (防止網路抖動造成的爆音)")]
+    // 假設 16000Hz，緩衝 0.1秒 = 1600 個樣本
+    public int bufferThreshold = 1600;
+
+    private bool isBuffering = true;
+
     void Start()
     {
         audioSource = GetComponent<AudioSource>();
@@ -21,10 +29,9 @@ public class AudioReceiver : MonoBehaviour
             NetworkManager.Instance.OnAudioReceived += HandleAudioData;
         }
 
-        // ★ 關鍵技巧：播放一個靜音的 Loop，讓 Audio Engine 保持啟動
-        // 這樣 OnAudioFilterRead 才會被持續呼叫
+        // ★ 關鍵：建立一個對應頻率的空 Clip
         audioSource.loop = true;
-        audioSource.clip = AudioClip.Create("Dummy", 16000, 1, 16000, false);
+        audioSource.clip = AudioClip.Create("VoIP_Stream", sampleRate, 1, sampleRate, false);
         audioSource.Play();
     }
 
@@ -36,7 +43,7 @@ public class AudioReceiver : MonoBehaviour
         }
     }
 
-    // 1. 接收端：收到資料，轉好格式，塞進排隊隊伍 (Queue)
+    // 1. 接收資料 (Main Thread 或 Network Thread)
     void HandleAudioData(AudioData data)
     {
         if (string.IsNullOrEmpty(data.pcm)) return;
@@ -44,41 +51,61 @@ public class AudioReceiver : MonoBehaviour
         byte[] bytes = Convert.FromBase64String(data.pcm);
         float[] newSamples = ConvertByteToFloat(bytes);
 
-        // 把每一個 float 樣本都塞進佇列
         foreach (float sample in newSamples)
         {
             audioQueue.Enqueue(sample);
         }
     }
 
-    // 2. 播放端：Unity 引擎每隔幾毫秒會自動呼叫這個函式要資料
-    // data: 引擎給你的空陣列，你要負責填滿它
-    // channels: 聲道數
+    // 2. 播放邏輯 (Audio Thread - 極高頻率呼叫)
     void OnAudioFilterRead(float[] data, int channels)
     {
-        for (int i = 0; i < data.Length; i += channels)
+        // 如果正在緩衝狀態，檢查是否累積足夠資料
+        if (isBuffering)
         {
-            // 從佇列拿一個樣本
-            if (audioQueue.TryDequeue(out float sample))
+            if (audioQueue.Count >= bufferThreshold)
             {
-                // 如果是單聲道，就填入所有聲道 (通常 VR 裡 data 是雙聲道)
-                data[i] = sample;
-
-                // 如果是雙聲道 (Stereo)，右耳也要填一樣的值 (不然會只有左耳有聲音)
-                if (channels > 1) data[i + 1] = sample;
+                isBuffering = false; // 累積夠了，開始播放
             }
             else
             {
-                // 如果佇列空了 (網路卡頓)，就填 0 (靜音)，不然會有爆音
+                // 還沒夠，先填靜音
+                Array.Clear(data, 0, data.Length);
+                return;
+            }
+        }
+
+        // 開始填入資料
+        for (int i = 0; i < data.Length; i += channels)
+        {
+            if (audioQueue.TryDequeue(out float sample))
+            {
+                data[i] = sample;
+
+                // 處理多聲道 (複製單聲道資料到所有聲道)
+                if (channels > 1)
+                {
+                    for (int c = 1; c < channels; c++)
+                    {
+                        data[i + c] = sample;
+                    }
+                }
+            }
+            else
+            {
+                // 資料用盡 (Buffer Underrun)
+                // 填入靜音並重新進入緩衝狀態，避免斷斷續續的雜音
                 data[i] = 0;
                 if (channels > 1) data[i + 1] = 0;
+
+                isBuffering = true;
             }
         }
     }
 
-    // 轉檔邏輯保持不變
     private float[] ConvertByteToFloat(byte[] array)
     {
+        // 假設是 16-bit PCM (Short)
         float[] floatArr = new float[array.Length / 2];
         for (int i = 0; i < floatArr.Length; i++)
         {
