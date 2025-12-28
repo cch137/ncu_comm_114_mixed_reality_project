@@ -1,18 +1,19 @@
 import debug from "debug";
-import type { WSEvents, WSContext } from "hono/ws";
+import { WSEvents, WSContext } from "hono/ws";
 import { z } from "zod";
 import { serverAudioPlayer } from "./audio";
+import {
+  AnchorState,
+  EntityController,
+  EntityState,
+  EntityStateUpdateEvent,
+} from "./entities";
+import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
+import { generateRandomId } from "../../lib/utils/generate-random-id";
+
+const DEFAULT_HEARTBEAT_MS = 10_000;
 
 const log = debug("rltm");
-
-function generateRandomId(): string {
-  const hex = crypto.randomUUID().replace(/-/g, "");
-  const bytes = new Uint8Array(
-    hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
-  );
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 
 /** These events are sent from the SERVER to the CLIENT. */
 export enum ServerEvent {
@@ -35,8 +36,12 @@ export enum ClientEvent {
   Audio = "Audio",
   EndAudio = "EndAudio",
   LoadGLTFOK = "LoadGLTFOK",
+  Poses = "Poses",
   HeadPose = "HeadPose",
   HandsPose = "HandsPose",
+  ClaimEntity = "ClaimEntity",
+  UpdateEntity = "UpdateEntity",
+  ReleaseEntity = "ReleaseEntity",
   JoinRoom = "JoinRoom",
   LeaveRoom = "LeaveRoom",
 }
@@ -45,7 +50,7 @@ export type RealtimeClientOptions = {
   heartbeatMs?: number;
 };
 
-const PoseSchema = z.object({
+export const PoseSchema = z.object({
   pos: z.tuple([z.number(), z.number(), z.number()]),
   rot: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -58,9 +63,15 @@ const AudioPacketSchema = z.object({
   pcm: z.string(),
 });
 
+const PosesPacket = z.tuple([PoseSchema, PoseSchema, PoseSchema]);
+
 const HeadPosePacket = PoseSchema;
 
 const HandsPoseSchema = z.tuple([PoseSchema, PoseSchema]);
+
+const EntityUpdatePacketSchema = ItemIdPacketSchema.extend({
+  pose: PoseSchema,
+});
 
 export type Pose = z.infer<typeof PoseSchema>;
 
@@ -68,7 +79,18 @@ class ScheduledTask {
   constructor(public readonly timeout: NodeJS.Timeout) {}
 }
 
-export class RealtimeClient {
+enum RealtimeClientAnchorType {
+  Head,
+  LeftHand,
+  RightHand,
+}
+
+const CLIENT_ROOM = Symbol();
+
+export class RealtimeClient extends ProtectedTinyNotifier<{
+  type: RealtimeClientAnchorType;
+  state: EntityStateUpdateEvent;
+}> {
   private static _internalCounter = 0;
 
   private _ws?: WSContext<WebSocket>;
@@ -80,14 +102,28 @@ export class RealtimeClient {
   protected readonly timeouts = new Set<ScheduledTask>();
   protected readonly loadedObjectIds = new Set<string>();
 
-  headPose: Pose = { pos: [0, 0, 0], rot: [0, 0, 0, 0] };
-  leftHandPose: Pose = { pos: [0, 0, 0], rot: [0, 0, 0, 0] };
-  rightHandPose: Pose = { pos: [0, 0, 0], rot: [0, 0, 0, 0] };
+  readonly controller = new EntityController();
 
-  protected lastReceivedAtMs: Number = NaN;
+  // 我們把頭、雙手看作是 anchor，它是一個 entity，
+  // 在加入場景時會綁定到場景的 entity 管理。
+  readonly head = new AnchorState();
+  readonly leftHand = new AnchorState();
+  readonly rightHand = new AnchorState();
+
+  protected lastReceivedAtMs: number = Date.now();
 
   constructor(options: RealtimeClientOptions = {}) {
-    this.heartbeatMs = options.heartbeatMs ?? 10_000;
+    super();
+    this.heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
+    if (
+      !(
+        this.head.claim(this.controller) &&
+        this.leftHand.claim(this.controller) &&
+        this.rightHand.claim(this.controller)
+      )
+    ) {
+      throw new Error("Failed to claim body parts");
+    }
   }
 
   get ws() {
@@ -95,27 +131,27 @@ export class RealtimeClient {
     return this._ws;
   }
 
-  get isConnected() {
-    return this.ws.raw?.readyState === this.ws.raw?.OPEN;
+  get isConnecting() {
+    return !this.ws.raw || this.ws.raw.readyState === this.ws.raw.CONNECTING;
   }
 
-  get isConnecting() {
-    return this.ws.raw?.readyState === this.ws.raw?.CONNECTING;
+  get isConnected() {
+    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.OPEN;
   }
 
   get isClosing() {
-    return this.ws.raw?.readyState === this.ws.raw?.CLOSING;
+    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.CLOSING;
   }
 
   get isClosed() {
-    return this.ws.raw?.readyState === this.ws.raw?.CLOSED;
+    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.CLOSED;
   }
 
   initialize(ws: WSContext<WebSocket>) {
     if (this._ws) throw new Error("Client is already initialized");
+    // 1 = OPEN ready state
+    if (ws.readyState !== 1) throw new Error("Client is not opened");
     this._ws = ws;
-    if (this.isClosing || this.isClosed)
-      throw new Error("Client is closing or closed");
     log(`client [${this.id}] joined`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
   }
@@ -127,59 +163,86 @@ export class RealtimeClient {
         cb();
       }, timeoutMs)
     );
-    this.intervals.add(task);
+    this.timeouts.add(task);
   }
 
   scheduleInterval(cb: () => void, intervalMs: number) {
     const task = new ScheduledTask(setInterval(() => cb(), intervalMs));
-    this.timeouts.add(task);
+    this.intervals.add(task);
   }
 
-  release() {
+  destroy() {
+    try {
+      this.ws.close();
+    } catch {
+      // ignore force closing error
+    }
     log(`client [${this.id}] leaved`);
     this.intervals.forEach((i) => clearInterval(i.timeout));
     this.timeouts.forEach((i) => clearTimeout(i.timeout));
-    if (this.room) RealtimeRoom.leave(this.room?.id, this);
-    this.ws.close();
+    if (this[CLIENT_ROOM]) RealtimeRoom.leave(this[CLIENT_ROOM]?.id, this);
   }
 
   send(type: ServerEvent, data?: any) {
-    this.ws.send(JSON.stringify({ type, data }));
-    log(`sending to [${this.id}] ${this.name}: ${type}`);
+    if (!this._ws?.raw || this._ws.raw.readyState !== this._ws.raw.OPEN) {
+      log("cancel sending to [${this.id}] ${this.name}: ${type}");
+      return;
+    }
+    try {
+      this.ws.send(JSON.stringify({ type, data }));
+      log(`sending to [${this.id}] ${this.name}: ${type}`);
+    } catch (err) {
+      log(`sending failed to [${this.id}] ${this.name}: ${type}]`);
+    }
   }
 
-  protected room: RealtimeRoom | null = null;
+  sendError(message: string) {
+    this.send(ServerEvent.Error, { message });
+    log(`error occured at [${this.id}]:`, message);
+  }
+
+  [CLIENT_ROOM]: RealtimeRoom | null = null;
 
   joinRoom(id: string) {
-    this.room?.removeClient(this);
-    this.room = RealtimeRoom.join(id, this);
+    return RealtimeRoom.join(id, this);
   }
 
   leaveRoom(id: string) {
-    RealtimeRoom.leave(id, this);
-    this.room = null;
+    return RealtimeRoom.leave(id, this);
   }
 
   handleMessage(type: ClientEvent | string, data: unknown) {
-    log(`client [${this.id}]: (${type})`, data);
+    log(`client [${this.id}]: (${type})`);
     this.lastReceivedAtMs = Date.now();
     switch (type) {
+      case ClientEvent.Poses: {
+        try {
+          const [headPose, leftHandPose, rightHandPose] =
+            PosesPacket.parse(data);
+          this.head.applyPose(this.controller, headPose);
+          this.leftHand.applyPose(this.controller, leftHandPose);
+          this.rightHand.applyPose(this.controller, rightHandPose);
+        } catch {
+          this.sendError("invalid poses");
+        }
+        break;
+      }
       case ClientEvent.HeadPose: {
         try {
           const pose = HeadPosePacket.parse(data);
-          this.headPose = pose;
+          this.head.applyPose(this.controller, pose);
         } catch {
-          this.send(ServerEvent.Error, { message: "invalid head pose" });
+          this.sendError("invalid head pose");
         }
         break;
       }
       case ClientEvent.HandsPose: {
         try {
           const [leftHandPose, rightHandPose] = HandsPoseSchema.parse(data);
-          this.leftHandPose = leftHandPose;
-          this.rightHandPose = rightHandPose;
+          this.leftHand.applyPose(this.controller, leftHandPose);
+          this.rightHand.applyPose(this.controller, rightHandPose);
         } catch {
-          this.send(ServerEvent.Error, { message: "invalid hand poses" });
+          this.sendError("invalid hand poses");
         }
         break;
       }
@@ -196,7 +259,7 @@ export class RealtimeClient {
           // TODO: serverAudioPlayer 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
           serverAudioPlayer.play(Buffer.from(pcm, "base64"));
         } catch (e) {
-          this.send(ServerEvent.Error, { message: "invalid params at Audio" });
+          this.sendError("invalid params at Audio");
         }
         break;
       }
@@ -205,9 +268,42 @@ export class RealtimeClient {
           const { id } = ItemIdPacketSchema.parse(data);
           this.loadedObjectIds.add(id);
         } catch {
-          this.send(ServerEvent.Error, {
-            message: "invalid params at LoadGLTFOK",
-          });
+          this.sendError("invalid params at LoadGLTFOK");
+        }
+        break;
+      }
+      case ClientEvent.ClaimEntity: {
+        try {
+          const { id } = ItemIdPacketSchema.parse(data);
+          if (!this[CLIENT_ROOM]?.claimEntityById(this.controller, id)) {
+            this.sendError(`Failed to claim entity "${id}"`);
+          }
+        } catch {
+          this.sendError("invalid params at ClaimEntity");
+        }
+        break;
+      }
+      case ClientEvent.UpdateEntity: {
+        try {
+          const { id, pose } = EntityUpdatePacketSchema.parse(data);
+          if (
+            !this[CLIENT_ROOM]?.updateEntityById(this.controller, id, { pose })
+          ) {
+            this.sendError(`Failed to update entity "${id}"`);
+          }
+        } catch {
+          this.sendError("invalid params at UpdateEntity");
+        }
+        break;
+      }
+      case ClientEvent.ReleaseEntity: {
+        try {
+          const { id } = ItemIdPacketSchema.parse(data);
+          if (!this[CLIENT_ROOM]?.releaseEntityById(this.controller, id)) {
+            this.sendError(`Failed to release entity "${id}"`);
+          }
+        } catch {
+          this.sendError("invalid params at ReleaseEntity");
         }
         break;
       }
@@ -245,16 +341,13 @@ class RealtimeRoom {
   }
 
   static join(id: string, client: RealtimeClient) {
-    const room = RealtimeRoom.get(id);
-    if (room) {
-      room.addClient(client);
-      return room;
-    } else {
-      const room = new RealtimeRoom(id);
+    let room = RealtimeRoom.get(id);
+    if (!room) {
+      room = new RealtimeRoom(id);
       RealtimeRoom.rooms.set(room.id, room);
-      room.addClient(client);
-      return room;
     }
+    room.addClient(client);
+    return room;
   }
 
   static leave(id: string, client: RealtimeClient) {
@@ -264,19 +357,76 @@ class RealtimeRoom {
       if (room.clients.size === 0) RealtimeRoom.rooms.delete(room.id);
       return removed;
     }
-    RealtimeRoom.get(id)?.removeClient(client);
+    return false;
   }
 
-  private readonly clients = new Set<RealtimeClient>();
+  protected readonly clients = new Set<RealtimeClient>();
+  protected readonly entities = new Map<string, EntityState>();
 
   private constructor(public readonly id: string) {}
 
-  addClient(client: RealtimeClient) {
+  private addClient(client: RealtimeClient) {
+    if (this.clients.has(client)) return;
+    const prevRoomId = client[CLIENT_ROOM]?.id ?? null;
+    if (prevRoomId !== null) {
+      RealtimeRoom.leave(prevRoomId, client);
+    }
     this.clients.add(client);
+    this.entities.set(client.head.id, client.head);
+    this.entities.set(client.leftHand.id, client.leftHand);
+    this.entities.set(client.rightHand.id, client.rightHand);
+    client[CLIENT_ROOM] = this;
   }
 
-  removeClient(client: RealtimeClient) {
+  private removeClient(client: RealtimeClient) {
+    if (client[CLIENT_ROOM] === this) client[CLIENT_ROOM] = null;
+    this.entities.delete(client.head.id);
+    this.entities.delete(client.leftHand.id);
+    this.entities.delete(client.rightHand.id);
+    this.entities.forEach((entity) => {
+      // 只釋放目前受控制的 entity，對目前不受控制的 entity 沒有影響。
+      client.controller.release(entity);
+    });
     return this.clients.delete(client);
+  }
+
+  getEntities() {
+    return Array.from(this.entities.values());
+  }
+
+  hasEntity(entityId: string): boolean;
+  hasEntity(entity: EntityState): boolean;
+  hasEntity(entity: string | EntityState): boolean {
+    return this.entities.has(typeof entity === "object" ? entity.id : entity);
+  }
+
+  getEntityById(entityId: string) {
+    return this.entities.get(entityId) ?? null;
+  }
+
+  addEntity(entity: EntityState) {
+    this.entities.set(entity.id, entity);
+  }
+
+  removeEntity(entity: EntityState) {
+    this.entities.delete(entity.id);
+    this.clients.forEach((client) => entity.release(client.controller));
+  }
+
+  claimEntityById(controller: EntityController, entityId: string) {
+    return this.entities.get(entityId)?.claim(controller) ?? false;
+  }
+
+  updateEntityById(
+    controller: EntityController,
+    entityId: string,
+    { pose }: { pose: Pose }
+  ) {
+    return this.entities.get(entityId)?.applyPose(controller, pose) ?? false;
+  }
+
+  releaseEntityById(controller: EntityController, entityId: string) {
+    return this.entities.get(entityId)?.release(controller) ?? false;
   }
 
   [Symbol.iterator]() {
@@ -308,22 +458,26 @@ export function realtimeHandler(): WSEvents<WebSocket> {
     },
 
     async onMessage(event, _ws) {
-      const parsed =
-        typeof event.data === "string"
-          ? JSON.parse(event.data)
-          : event.data instanceof Blob
-          ? JSON.parse(await event.data.text())
-          : event.data instanceof ArrayBuffer
-          ? JSON.parse(new TextDecoder().decode(event.data))
-          : null;
-      if (!isValidPacket(parsed)) {
-        return log(`client [${rtClient.id}] sent an invalid packet.`);
+      try {
+        const parsed =
+          typeof event.data === "string"
+            ? JSON.parse(event.data)
+            : event.data instanceof Blob
+            ? JSON.parse(await event.data.text())
+            : event.data instanceof ArrayBuffer
+            ? JSON.parse(new TextDecoder().decode(event.data))
+            : null;
+        if (!isValidPacket(parsed)) {
+          return log(`client [${rtClient.id}] sent an invalid packet.`);
+        }
+        rtClient.handleMessage(parsed.type, parsed.data);
+      } catch {
+        return log(`client [${rtClient.id}] sent unparsable packet.`);
       }
-      rtClient.handleMessage(parsed.type, parsed.data);
     },
 
     onClose(_event, _ws) {
-      rtClient.release();
+      rtClient.destroy();
     },
   };
 }
