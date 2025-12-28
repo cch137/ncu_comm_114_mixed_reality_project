@@ -126,31 +126,15 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     }
   }
 
-  get ws() {
+  private get ws() {
     if (!this._ws) throw new Error("Client is not initialized");
     return this._ws;
-  }
-
-  get isConnecting() {
-    return !this.ws.raw || this.ws.raw.readyState === this.ws.raw.CONNECTING;
-  }
-
-  get isConnected() {
-    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.OPEN;
-  }
-
-  get isClosing() {
-    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.CLOSING;
-  }
-
-  get isClosed() {
-    return this.ws.raw && this.ws.raw.readyState === this.ws.raw.CLOSED;
   }
 
   initialize(ws: WSContext<WebSocket>) {
     if (this._ws) throw new Error("Client is already initialized");
     // 1 = OPEN ready state
-    if (ws.readyState !== 1) throw new Error("Client is not opened");
+    if (ws.readyState !== 1) throw new Error("Client is not in the OPEN state");
     this._ws = ws;
     log(`client [${this.id}] joined`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
