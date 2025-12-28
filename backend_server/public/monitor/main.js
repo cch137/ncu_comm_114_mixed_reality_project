@@ -38,16 +38,19 @@
       isClosed = true;
       clearInterval(heartbeatInterval);
       ctx.close();
+      window.removeEventListener("pointerdown", resume);
+      window.removeEventListener("keydown", resume);
       await new Promise((r) => setTimeout(r, 1_000));
       await connect(true);
     };
 
     const heartbeat = () => {
       if (isClosed) return clearInterval(heartbeatInterval);
-      ws.send(new Uint8Array([]));
+      if (ws.readyState === WebSocket.OPEN) ws.send(new Uint8Array());
     };
 
     const setHeartbeat = () => {
+      clearInterval(heartbeatInterval);
       heartbeatInterval = setInterval(heartbeat, 20_000);
     };
 
@@ -99,9 +102,12 @@
 
     ws.addEventListener("error", async () => {
       updateStatus("Error");
-      if (ws.readyState !== WebSocket.CLOSING || ws.readyState !== ws.CLOSED)
+      if (
+        ws.readyState !== WebSocket.CLOSING &&
+        ws.readyState !== WebSocket.CLOSED
+      ) {
         ws.close();
-      await reconnect();
+      }
     });
 
     ws.addEventListener("close", async () => {
