@@ -3,7 +3,7 @@ import { WSContext } from "hono/ws";
 import debug from "debug";
 
 import { upgradeWebSocket } from "../server";
-import { serverAudioPlayer } from "../services/realtime/audio";
+import { serverMic, serverSpeaker } from "../services/realtime/audio";
 
 const log = debug("monitor");
 
@@ -11,7 +11,7 @@ const monitor = new Hono();
 
 const clients = new Set<WSContext<WebSocket>>();
 
-serverAudioPlayer.subscribe((pcm) => {
+serverSpeaker.subscribe((pcm) => {
   for (const client of clients) {
     try {
       client.send(new Uint8Array(pcm));
@@ -39,8 +39,17 @@ monitor.get(
       onError(_evt, _ws) {
         log(`[${id}] an error occurred`);
       },
-      onMessage(_evt, _ws) {
-        log(`[${id}] sent a message`);
+      async onMessage(event, _ws) {
+        const buffer =
+          typeof event.data === "string"
+            ? Buffer.from(event.data, "binary")
+            : event.data instanceof Blob
+            ? Buffer.from(await event.data.bytes())
+            : event.data instanceof ArrayBuffer
+            ? Buffer.from(event.data)
+            : null;
+        if (buffer && buffer.length) serverMic.play(buffer);
+        else log(`[${id}] sent a heartbeat`);
       },
     };
   })
