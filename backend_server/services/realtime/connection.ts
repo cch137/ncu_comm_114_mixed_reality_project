@@ -1,7 +1,7 @@
 import debug from "debug";
 import type { WSEvents, WSContext } from "hono/ws";
 import { z } from "zod";
-import { playAudio } from "./audio";
+import { serverAudioPlayer } from "./audio";
 
 const log = debug("rltm");
 
@@ -193,8 +193,8 @@ export class RealtimeClient {
       case ClientEvent.Audio: {
         try {
           const { pcm } = AudioPacketSchema.parse(data);
-          // TODO: playAudio 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
-          playAudio(Buffer.from(pcm, "base64"));
+          // TODO: serverAudioPlayer 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
+          serverAudioPlayer.play(Buffer.from(pcm, "base64"));
         } catch (e) {
           this.send(ServerEvent.Error, { message: "invalid params at Audio" });
         }
