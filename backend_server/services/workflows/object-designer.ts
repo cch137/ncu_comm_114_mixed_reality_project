@@ -1,12 +1,11 @@
 import path from "path";
-import { readFile } from "fs/promises";
 import { EventEmitter } from "events";
 import debug from "debug";
 import { Worker } from "worker_threads";
 import { generateText, type LanguageModel } from "ai";
 import { transpile, ModuleKind, ScriptTarget } from "typescript";
-import Handlebars from "handlebars";
 import z from "zod";
+import { loadInstructionsTemplate } from "../instructions";
 
 type ProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
 
@@ -48,16 +47,6 @@ export enum Status {
 }
 
 const log = debug("obj-dsgn");
-
-async function loadInstructionsTemplate<T = {}>(name: string) {
-  const filePath = path.resolve(
-    process.cwd(),
-    "instructions",
-    `threejs-${name}.md`
-  );
-  const md = await readFile(filePath, "utf8");
-  return Handlebars.compile<T>(md);
-}
 
 const instructions = (() => {
   const generationP = loadInstructionsTemplate<ObjectProps>("generation");
