@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class CreateGeomObj : MonoBehaviour
 {
@@ -16,20 +16,20 @@ public class CreateGeomObj : MonoBehaviour
 
     private void HandleCreateGeom(EntityData data)
     {
-        // ¥Í¦¨´X¦óÅé
+        // ç”Ÿæˆå¹¾ä½•é«”
         GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
         obj.name = $"GeomObj_{data.id}";
 
-        // ³]©w¦ì¸m
+        // è¨­å®šä½ç½®
         EntityManager.Instance.ApplyPose(obj.transform, data.pose);
 
-        // µù¥U
+        // è¨»å†Š
         EntityManager.Instance.RegisterEntity(data.id, obj);
 
-        // ¡¹¡¹¡¹ ·s¼W¡G¦Û°Ê±¾¸ü NetworkGrabbable ¡¹¡¹¡¹
+        // â˜…â˜…â˜… æ–°å¢ï¼šè‡ªå‹•æ›è¼‰ NetworkGrabbable â˜…â˜…â˜…
         var grabbable = obj.AddComponent<ObjGrabbable>();
-        grabbable.entityId = data.id; // ­«­n¡I
+        grabbable.entityId = data.id; // é‡è¦ï¼
 
-        Debug.Log($"[CreateGeomObj] ¥Í¦¨¨Ã±¾¸ü¸}¥» ID: {data.id}");
+        Debug.Log($"[CreateGeomObj] ç”Ÿæˆä¸¦æ›è¼‰è…³æœ¬ ID: {data.id}");
     }
 }

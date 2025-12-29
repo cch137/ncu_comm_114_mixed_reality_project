@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using GLTFast;
 using System.Threading.Tasks;
 
@@ -22,35 +22,35 @@ public class OldCreateProgObj : MonoBehaviour
 
     private async void HandleCreateProgObj(CreateProgObjData data)
     {
-        Debug.Log($"[CreateProgObj] ·Ç³Æ¤U¸ü: {data.gltf.url}");
+        Debug.Log($"[CreateProgObj] æº–å‚™ä¸‹è¼‰: {data.gltf.url}");
 
-        // 1. ¥ı¤U¸ü (³o®É­ÔÁÙ¤£«Ø¥ßª«¥ó¡A©Ò¥H¨S¦³ parent ·|³Q§R°£ªº°İÃD)
+        // 1. å…ˆä¸‹è¼‰ (é€™æ™‚å€™é‚„ä¸å»ºç«‹ç‰©ä»¶ï¼Œæ‰€ä»¥æ²’æœ‰ parent æœƒè¢«åˆªé™¤çš„å•é¡Œ)
         var gltf = new GltfImport();
         bool success = await gltf.Load(data.gltf.url);
 
-        // ¦pªG¸}¥»¥»¨­¦b¤U¸ü¹Lµ{¤¤³Q¾P·´¤F¡A´N°±¤â
+        // å¦‚æœè…³æœ¬æœ¬èº«åœ¨ä¸‹è¼‰éç¨‹ä¸­è¢«éŠ·æ¯€äº†ï¼Œå°±åœæ‰‹
         if (this == null) return;
 
         if (success)
         {
-            // 2. ¤U¸ü¦¨¥\¤F¡I²{¦b¤~«Ø¥ß·sªº¹CÀ¸ª«¥ó
+            // 2. ä¸‹è¼‰æˆåŠŸäº†ï¼ç¾åœ¨æ‰å»ºç«‹æ–°çš„éŠæˆ²ç‰©ä»¶
             GameObject newObj = new GameObject($"ProgObj_{data.gltf.name}");
 
-            // 3. §â¼Ò«¬¥Í¦b­è­è«Ø¦nªºª«¥ó¸Ì­±
+            // 3. æŠŠæ¨¡å‹ç”Ÿåœ¨å‰›å‰›å»ºå¥½çš„ç‰©ä»¶è£¡é¢
             await gltf.InstantiateMainSceneAsync(newObj.transform);
 
-            // ¦w¥şÀË¬d¡G¥Í¦¨¹Lµ{¤¤­Y¸}¥»©Îª«¥ó³Q¾P·´«h°±¤î
+            // å®‰å…¨æª¢æŸ¥ï¼šç”Ÿæˆéç¨‹ä¸­è‹¥è…³æœ¬æˆ–ç‰©ä»¶è¢«éŠ·æ¯€å‰‡åœæ­¢
             if (this == null || newObj == null) return;
 
-            // 4. ³]©w¦ì¸m»Pµù¥U (©Ò¦³ÅŞ¿è·h¨ì³o¸Ì)
+            // 4. è¨­å®šä½ç½®èˆ‡è¨»å†Š (æ‰€æœ‰é‚è¼¯æ¬åˆ°é€™è£¡)
             EntityManager.Instance.ApplyPose(newObj.transform, data.pose);
             EntityManager.Instance.RegisterEntity(data.id, newObj);
 
-            // 5. ±¾¸ü Grabbable
+            // 5. æ›è¼‰ Grabbable
             var grabbable = newObj.AddComponent<ObjGrabbable>();
             grabbable.entityId = data.id;
 
-            // 6. ¦Û°Ê­pºâ¨Ã¥[¤J Collider (°w¹ï newObj ³B²z)
+            // 6. è‡ªå‹•è¨ˆç®—ä¸¦åŠ å…¥ Collider (é‡å° newObj è™•ç†)
             Renderer[] renderers = newObj.GetComponentsInChildren<Renderer>();
             if (renderers.Length > 0 && newObj.GetComponent<Collider>() == null)
             {
@@ -64,7 +64,7 @@ public class OldCreateProgObj : MonoBehaviour
         }
         else
         {
-            Debug.LogError($"[CreateProgObj] ¤U¸ü¥¢±Ñ: {data.gltf.url}");
+            Debug.LogError($"[CreateProgObj] ä¸‹è¼‰å¤±æ•—: {data.gltf.url}");
         }
     }
 }

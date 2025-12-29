@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class CreateAnchorObj : MonoBehaviour
 {
@@ -18,12 +18,12 @@ public class CreateAnchorObj : MonoBehaviour
     {
         GameObject obj = new GameObject("Anchor");
 
-        // ¬°¤F Debug ¬İ±o¨£¡A¥[¤@­Ó¤p¹Ï¥Ü©Î Gizmo
-        // ¹ê»Ú±M®×¥i¯à¤£»İ­n
+        // ç‚ºäº† Debug çœ‹å¾—è¦‹ï¼ŒåŠ ä¸€å€‹å°åœ–ç¤ºæˆ– Gizmo
+        // å¯¦éš›å°ˆæ¡ˆå¯èƒ½ä¸éœ€è¦
 
         EntityManager.Instance.ApplyPose(obj.transform, data.pose);
         EntityManager.Instance.RegisterEntity(data.id, obj);
 
-        Debug.Log($"[CreateAnchorObj] ¥Í¦¨ÁãÂI ID: {data.id}");
+        Debug.Log($"[CreateAnchorObj] ç”ŸæˆéŒ¨é» ID: {data.id}");
     }
 }

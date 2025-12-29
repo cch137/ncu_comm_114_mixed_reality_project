@@ -2,18 +2,18 @@
 //using NativeWebSocket;
 //using System.Text;
 //using UnityEngine.InputSystem;
-//using Newtonsoft.Json;       // ¤Ş¤J Newtonsoft
-//using Newtonsoft.Json.Linq;  // ¤Ş¤J JObject
+//using Newtonsoft.Json;       // å¼•å…¥ Newtonsoft
+//using Newtonsoft.Json.Linq;  // å¼•å…¥ JObject
 
 //public class Connection : MonoBehaviour
 //{
 //    private WebSocket websocket;
 
-//    [Header("³s½u³]©w")]
+//    [Header("é€£ç·šè¨­å®š")]
 //    public string serverUrl = "ws://localhost:8080";
-//    public bool autoReconnect = true; // ¬O§_¶}±Ò¦Û°Ê­«³s
+//    public bool autoReconnect = true; // æ˜¯å¦é–‹å•Ÿè‡ªå‹•é‡é€£
 
-//    private bool isQuitting = false; // Á×§KÃö³¬µ{¦¡®ÉÄ²µo­«³s
+//    private bool isQuitting = false; // é¿å…é—œé–‰ç¨‹å¼æ™‚è§¸ç™¼é‡é€£
 
 //    void Start()
 //    {
@@ -22,7 +22,7 @@
 
 //    async void ConnectToServer()
 //    {
-//        // ¦pªG¤w¸g¦³³s½u¡A¥ı²M°£ÂÂªº
+//        // å¦‚æœå·²ç¶“æœ‰é€£ç·šï¼Œå…ˆæ¸…é™¤èˆŠçš„
 //        if (websocket != null)
 //        {
 //            websocket = null;
@@ -30,55 +30,55 @@
 
 //        websocket = new WebSocket(serverUrl);
 
-//        websocket.OnOpen += () => Debug.Log("<color=green>³s½u¤w¶}±Ò¡I</color>");
+//        websocket.OnOpen += () => Debug.Log("<color=green>é€£ç·šå·²é–‹å•Ÿï¼</color>");
 
-//        // ¿ù»~³B²z
+//        // éŒ¯èª¤è™•ç†
 //        websocket.OnError += (e) =>
 //        {
-//            Debug.LogError("WebSocket ¿ù»~: " + e);
-//            // ³q±` Error «á­±·|±µ Close¡A©Ò¥H­«³sÅŞ¿è¼g¦b OnClose ¤ñ¸û«OÀI
+//            Debug.LogError("WebSocket éŒ¯èª¤: " + e);
+//            // é€šå¸¸ Error å¾Œé¢æœƒæ¥ Closeï¼Œæ‰€ä»¥é‡é€£é‚è¼¯å¯«åœ¨ OnClose æ¯”è¼ƒä¿éšª
 //        };
 
 //        // ==========================================
-//        // ¡iÂ_½u­«³sÅŞ¿è¡j
+//        // ã€æ–·ç·šé‡é€£é‚è¼¯ã€‘
 //        // ==========================================
 //        websocket.OnClose += (e) =>
 //        {
-//            Debug.LogWarning("³s½u¤wÃö³¬¡I");
+//            Debug.LogWarning("é€£ç·šå·²é—œé–‰ï¼");
 
 //            if (autoReconnect && !isQuitting)
 //            {
-//                Debug.Log("1 ¬í«á¹Á¸Õ­«·s³s½u...");
-//                // ¨Ï¥Î Invoke ©µ¿ğ 1 ¬í«á°õ¦æ³s½u¨ç¦¡
+//                Debug.Log("1 ç§’å¾Œå˜—è©¦é‡æ–°é€£ç·š...");
+//                // ä½¿ç”¨ Invoke å»¶é² 1 ç§’å¾ŒåŸ·è¡Œé€£ç·šå‡½å¼
 //                Invoke(nameof(ConnectToServer), 1.0f);
 //            }
 //        };
 
 //        // ==========================================
-//        // ¡iNewtonsoft ¾ã¦X¡j¦¬¨ì°T®§«áªº³B²zÅŞ¿è
+//        // ã€Newtonsoft æ•´åˆã€‘æ”¶åˆ°è¨Šæ¯å¾Œçš„è™•ç†é‚è¼¯
 //        // ==========================================
 //        websocket.OnMessage += (bytes) =>
 //        {
 //            string jsonStr = Encoding.UTF8.GetString(bytes);
-//            Debug.Log($"¦¬¨ì Server °T®§: {jsonStr}");
+//            Debug.Log($"æ”¶åˆ° Server è¨Šæ¯: {jsonStr}");
 
 //            try
 //            {
-//                // 1. ¨Ï¥Î JObject ¸ÑªR (Newtonsoft)
+//                // 1. ä½¿ç”¨ JObject è§£æ (Newtonsoft)
 //                JObject pack = JObject.Parse(jsonStr);
 
-//                // ¨ú±o type (¨Ï¥Î ?. Á×§K null ³ø¿ù)
+//                // å–å¾— type (ä½¿ç”¨ ?. é¿å… null å ±éŒ¯)
 //                string msgType = pack["type"]?.ToString();
 
 //                switch (msgType)
 //                {
 //                    case "LoadGLTF":
-//                        // ª½±µ³z¹L¸ô®|¦s¨ú±_ª¬¸ê®Æ
+//                        // ç›´æ¥é€éè·¯å¾‘å­˜å–å·¢ç‹€è³‡æ–™
 //                        string id = pack["data"]?["id"]?.ToString();
 //                        string name = pack["data"]?["name"]?.ToString();
 //                        string url = pack["data"]?["url"]?.ToString();
 
-//                        Debug.Log($"¦øªA¾¹­n¨D¸ü¤J GLTF, URL: {url}");
+//                        Debug.Log($"ä¼ºæœå™¨è¦æ±‚è¼‰å…¥ GLTF, URL: {url}");
 
 //                        if (!string.IsNullOrEmpty(url))
 //                        {
@@ -88,27 +88,27 @@
 //                            }
 //                            else
 //                            {
-//                                Debug.LogError("§ä¤£¨ì MultiRuntimeLoader¡I½Ğ½T»{³õ´º¤¤¦³±¾¸ü¸Ó¸}¥»¡C");
+//                                Debug.LogError("æ‰¾ä¸åˆ° MultiRuntimeLoaderï¼è«‹ç¢ºèªå ´æ™¯ä¸­æœ‰æ›è¼‰è©²è…³æœ¬ã€‚");
 //                            }
 //                        }
 //                        break;
 
 //                    case "Heartbeat":
-//                        Debug.Log("¦¬¨ì¤ß¸õ¥]: " + pack["data"]);
+//                        Debug.Log("æ”¶åˆ°å¿ƒè·³åŒ…: " + pack["data"]);
 //                        break;
 
 //                    default:
-//                        Debug.LogWarning("¥¼ª¾ªº«Ê¥]Ãş«¬: " + msgType);
+//                        Debug.LogWarning("æœªçŸ¥çš„å°åŒ…é¡å‹: " + msgType);
 //                        break;
 //                }
 //            }
 //            catch (System.Exception e)
 //            {
-//                Debug.LogError($"JSON ¸ÑªR¥¢±Ñ: {e.Message} \n­ì©l¸ê®Æ: {jsonStr}");
+//                Debug.LogError($"JSON è§£æå¤±æ•—: {e.Message} \nåŸå§‹è³‡æ–™: {jsonStr}");
 //            }
 //        };
 
-//        // ¶}©l³s½u
+//        // é–‹å§‹é€£ç·š
 //        await websocket.Connect();
 //    }
 
@@ -118,10 +118,10 @@
 //        if (websocket != null) websocket.DispatchMessageQueue();
 //#endif
 
-//        // ªÅ¥ÕÁä´ú¸Õµo°e
+//        // ç©ºç™½éµæ¸¬è©¦ç™¼é€
 //        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
 //        {
-//            // ´ú¸Õ¶Ç°e¤@­Ó½ÆÂø¤@ÂIªºª«¥ó
+//            // æ¸¬è©¦å‚³é€ä¸€å€‹è¤‡é›œä¸€é»çš„ç‰©ä»¶
 //            var testData = new { message = "Client is alive!", timestamp = Time.time };
 //            SendJson("log", testData);
 //        }
@@ -129,8 +129,8 @@
 
 //    private async void OnApplicationQuit()
 //    {
-//        isQuitting = true; // ¼Ğ°O¬°¥¿¦bÃö³¬¡Aªı¤î­«³s
-//        CancelInvoke(nameof(ConnectToServer)); // ¨ú®ø©|¥¼°õ¦æªº­«³s±Æµ{
+//        isQuitting = true; // æ¨™è¨˜ç‚ºæ­£åœ¨é—œé–‰ï¼Œé˜»æ­¢é‡é€£
+//        CancelInvoke(nameof(ConnectToServer)); // å–æ¶ˆå°šæœªåŸ·è¡Œçš„é‡é€£æ’ç¨‹
 
 //        if (websocket != null)
 //        {
@@ -142,12 +142,12 @@
 //    {
 //        if (websocket != null && websocket.State == WebSocketState.Open)
 //        {
-//            // «Øºc«Ê¥]
+//            // å»ºæ§‹å°åŒ…
 //            SimplePacket packet = new SimplePacket();
 //            packet.type = type;
 //            packet.data = content;
 
-//            // ¨Ï¥Î Newtonsoft §Ç¦C¤Æ (¦]¬° content ¬O object Ãş«¬¡AJsonUtility ³B²z¤£¤F)
+//            // ä½¿ç”¨ Newtonsoft åºåˆ—åŒ– (å› ç‚º content æ˜¯ object é¡å‹ï¼ŒJsonUtility è™•ç†ä¸äº†)
 //            string json = JsonConvert.SerializeObject(packet);
 
 //            websocket.SendText(json);
@@ -155,10 +155,10 @@
 //    }
 //}
 
-//// ©w¸q«Ê¥]µ²ºc (¥u¥Î©óµo°e¡A±µ¦¬®É§Ú­Ì¤w¸g§ï¥Î JObject °ÊºA¸ÑªR¤F)
+//// å®šç¾©å°åŒ…çµæ§‹ (åªç”¨æ–¼ç™¼é€ï¼Œæ¥æ”¶æ™‚æˆ‘å€‘å·²ç¶“æ”¹ç”¨ JObject å‹•æ…‹è§£æäº†)
 //[System.Serializable]
 //public class SimplePacket
 //{
 //    public string type;
-//    public object data; // ¨Ï¥Î object Åı Newtonsoft ¥i¥H¶ë¤J¥ô¦óµ²ºc
+//    public object data; // ä½¿ç”¨ object è®“ Newtonsoft å¯ä»¥å¡å…¥ä»»ä½•çµæ§‹
 //}

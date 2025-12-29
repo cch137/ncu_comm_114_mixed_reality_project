@@ -1,9 +1,9 @@
 using UnityEngine;
-using UnityEngine.UI; // ©Î¬O TMPro
+using UnityEngine.UI; // æˆ–æ˜¯ TMPro
 
 public class TranscriptUI : MonoBehaviour
 {
-    public Text uiText; // ¦pªG¬O¥Î TextMeshPro ´N§ï TMP_Text
+    public Text uiText; // å¦‚æžœæ˜¯ç”¨ TextMeshPro å°±æ”¹ TMP_Text
 
     void Start()
     {

@@ -2,27 +2,27 @@ using UnityEngine;
 
 public class ServerGameLogic : MonoBehaviour
 {
-    // «Å§iºŞ²z¾¹
+    // å®£å‘Šç®¡ç†å™¨
     private WorldStateManager<BaseObjectState> _worldState = new WorldStateManager<BaseObjectState>();
 
     void Update()
     {
-        // °²³]³o¬O¦b Server ºİ±µ¦¬¨ì Client ªº¼Æ¾Ú
+        // å‡è¨­é€™æ˜¯åœ¨ Server ç«¯æ¥æ”¶åˆ° Client çš„æ•¸æ“š
         string uuid = "player-001";
 
-        // ±¡ªp A¡Gª½±µ±q Unity ª«¥óÀò¨ú (³Ì±`¥Î)
-        // transform.rotation ¥»¨­´N¬O Quaternion
+        // æƒ…æ³ Aï¼šç›´æ¥å¾ Unity ç‰©ä»¶ç²å– (æœ€å¸¸ç”¨)
+        // transform.rotation æœ¬èº«å°±æ˜¯ Quaternion
         Vector3 currentPos = transform.position;
         Quaternion currentRot = transform.rotation;
 
-        // ±¡ªp B¡G¦pªG§A¤âÃä¥u¦³¼Ú©Ô¨¤ (¨Ò¦p (0, 90, 0))
-        // ¨Ï¥Î Quaternion.Euler Âà´«
+        // æƒ…æ³ Bï¼šå¦‚æœä½ æ‰‹é‚Šåªæœ‰æ­æ‹‰è§’ (ä¾‹å¦‚ (0, 90, 0))
+        // ä½¿ç”¨ Quaternion.Euler è½‰æ›
         // Quaternion calculatedRot = Quaternion.Euler(0, 90, 0);
 
-        // «Ø¥ßª¬ºAª«¥ó
+        // å»ºç«‹ç‹€æ…‹ç‰©ä»¶
         BaseObjectState state = new BaseObjectState(uuid, currentPos, currentRot);
 
-        // ¦s¤J ConcurrentDictionary
+        // å­˜å…¥ ConcurrentDictionary
         _worldState.UpdateObject(uuid, state);
     }
 
@@ -31,9 +31,9 @@ public class ServerGameLogic : MonoBehaviour
         var obj = _worldState.GetObject("player-001");
         if (obj != null)
         {
-            // ¨ú¥X¼Æ¾Ú®É¡A¥i¥Hª½±µ¨Ï¥Î
+            // å–å‡ºæ•¸æ“šæ™‚ï¼Œå¯ä»¥ç›´æ¥ä½¿ç”¨
             // obj.Rotation.x, obj.Rotation.y, obj.Rotation.z, obj.Rotation.w
-            Debug.Log($"¥Ø«eªº±ÛÂà W ¤À¶q: {obj.Rotation.w}");
+            Debug.Log($"ç›®å‰çš„æ—‹è½‰ W åˆ†é‡: {obj.Rotation.w}");
         }
     }
 }

@@ -5,11 +5,11 @@ public class RoomManager : MonoBehaviour
 {
     public static RoomManager Instance;
 
-    [Header("©Ğ¶¡³]©w")]
+    [Header("æˆ¿é–“è¨­å®š")]
     public string desireRoomID = "101";
     public string CurrentRoomId { get; private set; }
 
-    // §PÂ_¬O§_¦b©Ğ¶¡¤ºªºÄİ©Ê
+    // åˆ¤æ–·æ˜¯å¦åœ¨æˆ¿é–“å…§çš„å±¬æ€§
     public bool IsInRoom => !string.IsNullOrEmpty(CurrentRoomId);
 
     private void Awake()
@@ -30,29 +30,29 @@ public class RoomManager : MonoBehaviour
         {
             NetworkManager.Instance.OnJoinRoomOK += HandleJoinSuccess;
             NetworkManager.Instance.OnLeaveRoomOK += HandleLeaveSuccess;
-            // ­q¾\Â_½u¨Æ¥ó
+            // è¨‚é–±æ–·ç·šäº‹ä»¶
             NetworkManager.Instance.OnDisconnected += HandleDisconnected;
         }
     }
 
     private void Update()
     {
-        // «öÁä O ¥[¤J
+        // æŒ‰éµ O åŠ å…¥
         if (Keyboard.current != null && Keyboard.current.oKey.wasPressedThisFrame)
         {
-            Debug.Log($"[«öÁä] «ö¤U O Áä¡A¹Á¸Õ¥[¤J©Ğ¶¡: {desireRoomID}");
+            Debug.Log($"[æŒ‰éµ] æŒ‰ä¸‹ O éµï¼Œå˜—è©¦åŠ å…¥æˆ¿é–“: {desireRoomID}");
             JoinRoom(desireRoomID);
         }
 
-        // «öÁä P Â÷¶}
+        // æŒ‰éµ P é›¢é–‹
         if (Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame)
         {
-            Debug.Log($"[«öÁä] «ö¤U P Áä¡A¹Á¸ÕÂ÷¶}©Ğ¶¡: {desireRoomID}");
+            Debug.Log($"[æŒ‰éµ] æŒ‰ä¸‹ P éµï¼Œå˜—è©¦é›¢é–‹æˆ¿é–“: {desireRoomID}");
             LeaveRoom(desireRoomID);
         }
     }
 
-    // --- ¥\¯àÅŞ¿è ---
+    // --- åŠŸèƒ½é‚è¼¯ ---
 
     public void JoinRoom(string id)
     {
@@ -75,7 +75,7 @@ public class RoomManager : MonoBehaviour
         }
     }
 
-    // --- UI ©I¥sºİ ---
+    // --- UI å‘¼å«ç«¯ ---
 
     public void OnJoinButtonPress(string idFromInput)
     {
@@ -87,51 +87,51 @@ public class RoomManager : MonoBehaviour
         LeaveRoom(idFromInput);
     }
 
-    // --- ¦^½Õ³B²z ---
+    // --- å›èª¿è™•ç† ---
 
     private void HandleJoinSuccess(string roomId)
     {
-        // [¦w¥ş¾÷¨î] ¥[¤J·s©Ğ¶¡«e¡A¥ı½T«OÂÂª«¥ó³£²M°®²b¤F¡AÁ×§K´İ¯d
+        // [å®‰å…¨æ©Ÿåˆ¶] åŠ å…¥æ–°æˆ¿é–“å‰ï¼Œå…ˆç¢ºä¿èˆŠç‰©ä»¶éƒ½æ¸…ä¹¾æ·¨äº†ï¼Œé¿å…æ®˜ç•™
         if (EntityManager.Instance != null)
         {
             EntityManager.Instance.ClearAll();
         }
 
-        Debug.Log($"<color=green>¦¨¥\¥[¤J©Ğ¶¡: {roomId}</color>");
+        Debug.Log($"<color=green>æˆåŠŸåŠ å…¥æˆ¿é–“: {roomId}</color>");
         CurrentRoomId = roomId;
 
-        // TODO: ³o¸Ì¥i¥H¥[¤J¤Á´« UI ªºÅŞ¿è (ÁôÂÃ Lobby, Åã¥Ü Game UI)
+        // TODO: é€™è£¡å¯ä»¥åŠ å…¥åˆ‡æ› UI çš„é‚è¼¯ (éš±è— Lobby, é¡¯ç¤º Game UI)
     }
 
     private void HandleLeaveSuccess(string roomId)
     {
-        Debug.Log($"<color=yellow>¤wÂ÷¶}©Ğ¶¡: {roomId}</color>");
-        ClearRoomState(); // ©I¥s²Î¤@ªº²M²zÅŞ¿è
+        Debug.Log($"<color=yellow>å·²é›¢é–‹æˆ¿é–“: {roomId}</color>");
+        ClearRoomState(); // å‘¼å«çµ±ä¸€çš„æ¸…ç†é‚è¼¯
     }
 
-    // ³B²z·N¥~Â_½u
+    // è™•ç†æ„å¤–æ–·ç·š
     private void HandleDisconnected()
     {
-        // ¦pªG­ì¥»¦b©Ğ¶¡¤º¡A¤~»İ­n°µ²M²z°Ê§@
+        // å¦‚æœåŸæœ¬åœ¨æˆ¿é–“å…§ï¼Œæ‰éœ€è¦åšæ¸…ç†å‹•ä½œ
         if (IsInRoom)
         {
-            Debug.LogWarning($"[RoomManager] °»´ú¨ìÂ_½u¡I±j¨î°õ¦æ©Ğ¶¡²M²z¡C");
+            Debug.LogWarning($"[RoomManager] åµæ¸¬åˆ°æ–·ç·šï¼å¼·åˆ¶åŸ·è¡Œæˆ¿é–“æ¸…ç†ã€‚");
             ClearRoomState();
         }
     }
 
-    // --- ®Ö¤ß²M²zÅŞ¿è ---
-    // µL½×¬O¡u¥D°ÊÂ÷¶}¡vÁÙ¬O¡u³Q°ÊÂ_½u¡v¡A³£¨«³o±ø¸ô
+    // --- æ ¸å¿ƒæ¸…ç†é‚è¼¯ ---
+    // ç„¡è«–æ˜¯ã€Œä¸»å‹•é›¢é–‹ã€é‚„æ˜¯ã€Œè¢«å‹•æ–·ç·šã€ï¼Œéƒ½èµ°é€™æ¢è·¯
     private void ClearRoomState()
     {
-        CurrentRoomId = ""; // 1. ²MªÅ ID¡A¼Ğ°O¬°¤£¦b©Ğ¶¡
+        CurrentRoomId = ""; // 1. æ¸…ç©º IDï¼Œæ¨™è¨˜ç‚ºä¸åœ¨æˆ¿é–“
 
-        // 2. ²MªÅ³õ´º¤Wªººô¸ôª«¥ó
+        // 2. æ¸…ç©ºå ´æ™¯ä¸Šçš„ç¶²è·¯ç‰©ä»¶
         if (EntityManager.Instance != null)
         {
-            // ³o¸Ì©I¥s EntityManager ªº ClearAll ¤èªk (°O±o¥h EntityManager §â¸Ó¤èªk¸É¤W¨Ã¤½¶})
+            // é€™è£¡å‘¼å« EntityManager çš„ ClearAll æ–¹æ³• (è¨˜å¾—å» EntityManager æŠŠè©²æ–¹æ³•è£œä¸Šä¸¦å…¬é–‹)
             EntityManager.Instance.ClearAll();
-            Debug.Log("[RoomManager] ¤w½Ğ¨D EntityManager ²MªÅ©Ò¦³ª«¥ó...");
+            Debug.Log("[RoomManager] å·²è«‹æ±‚ EntityManager æ¸…ç©ºæ‰€æœ‰ç‰©ä»¶...");
         }
     }
 

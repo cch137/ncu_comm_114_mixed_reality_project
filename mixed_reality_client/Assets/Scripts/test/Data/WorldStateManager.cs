@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
-// ³o¬qµ{¦¡½X»P¤§«e§¹¥ş¬Û¦P¡A¥i¥Hª½±µªu¥Î
+// é€™æ®µç¨‹å¼ç¢¼èˆ‡ä¹‹å‰å®Œå…¨ç›¸åŒï¼Œå¯ä»¥ç›´æ¥æ²¿ç”¨
 public class WorldStateManager<T> where T : BaseObjectState
 {
     private ConcurrentDictionary<string, T> _objectStore;
@@ -18,7 +18,7 @@ public class WorldStateManager<T> where T : BaseObjectState
             newState,
             (key, oldValue) =>
             {
-                // ³o¸Ì·|©I¥s BaseObjectState ¸Ì§ó·s«áªº UpdateState ¤èªk
+                // é€™è£¡æœƒå‘¼å« BaseObjectState è£¡æ›´æ–°å¾Œçš„ UpdateState æ–¹æ³•
                 oldValue.UpdateState(newState.Position, newState.Rotation);
                 return oldValue;
             }
