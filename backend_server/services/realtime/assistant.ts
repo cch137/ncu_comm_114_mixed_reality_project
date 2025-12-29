@@ -1,45 +1,104 @@
 import {
   GoogleGenAI,
+  LiveSendRealtimeInputParameters,
   LiveServerMessage,
   Modality,
   Session,
 } from "@google/genai";
 import debug from "debug";
 import {
-  serverMic,
   serverSpeaker,
   SERVER_AUDIO_SAMPLE_RATE,
   resamplePcmAudioBuffer,
 } from "./audio";
 import z from "zod";
 
+import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
+import { throttle } from "../../lib/utils/throttle";
+import { generateRandomId } from "../../lib/utils/generate-random-id";
+
 const log = debug("assistant");
 
 const DEFAULT_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
 const INPUT_SAMPLE_RATE = 16_000;
 const OUTPUT_SAMPLE_RATE = 24_000;
-const AUDIO_SEND_INTERVAL_MS = 250;
+const AUDIO_THROTTLE_DELAY_MS = 100;
+const MAX_PENDING_INPUT_PARAMS_LENGTH = 20;
+const MAX_PENDING_AUDIO_INPUT_CHUNKS_LENGTH = 1_000;
 
 const gai = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
-export class RealtimeAssistant {
+export enum AssistantEventType {
+  Interrupted = "Interrupted",
+  AudioChunk = "AudioChunk",
+  TextChunk = "TextChunk",
+  ToolCall = "ToolCall",
+}
+
+export type InterruptedEvent = {
+  type: AssistantEventType.Interrupted;
+};
+
+export type AudioChunkEvent = {
+  type: AssistantEventType.AudioChunk;
+  chunk: Buffer<ArrayBufferLike>;
+};
+
+export type TextChunkEvent = {
+  type: AssistantEventType.TextChunk;
+  chunk: string;
+};
+
+export type ToolCallEvent = {
+  type: AssistantEventType.ToolCall;
+  name: string;
+};
+
+export type AssistantEvent =
+  | InterruptedEvent
+  | AudioChunkEvent
+  | TextChunkEvent
+  | ToolCallEvent;
+
+export class RealtimeAssistant extends ProtectedTinyNotifier<AssistantEvent> {
+  readonly id = generateRandomId();
+
   private session: Session | null = null;
-  private isConnected = false;
+  private reconnectKey: Symbol | null = null;
+  private connecting = false;
+  private connected = false;
+  private destroyed = false;
 
-  private pendingAudioChunks: Buffer[] = [];
-  private audioFlushTimer: NodeJS.Timeout | null = null;
+  private readonly pendingInputParams: LiveSendRealtimeInputParameters[] = [];
+  private readonly pendingAudioInputChunks: Buffer<ArrayBufferLike>[] = [];
+  private readonly pendingAudioOutputChunks: Buffer<ArrayBufferLike>[] = [];
 
-  constructor() {}
+  constructor() {
+    super();
+  }
 
-  async connect(): Promise<void> {
-    if (this.isConnected) {
-      log("already connected");
+  async connect(key?: Symbol) {
+    if (this.destroyed) {
+      log(`[${this.id}] session already destroyed, connection cancelled.`);
+      return this;
+    }
+    if (this.connected || this.connecting) {
+      log(`[${this.id}] session already exists, connection cancelled.`);
+      return this;
+    }
+    if (this.reconnectKey && this.reconnectKey !== key) {
+      log(`[${this.id}] session is reconnecting, connection cancelled.`);
       return;
     }
 
     try {
+      log(`[${this.id}] connecting...`);
+
+      this.connecting = true;
+      this.reconnectKey = null;
+
       this.session = await gai.live.connect({
         model: DEFAULT_MODEL,
         config: {
@@ -68,59 +127,116 @@ export class RealtimeAssistant {
           systemInstruction: "你的名字是茶壺小姐。一個有趣的 AI 助手。",
         },
         callbacks: {
-          onopen: () => this.handleOpen(),
+          onopen: () => {
+            log(`[${this.id}] connected`);
+            this.connected = true;
+            this.connecting = false;
+            // flush pending audio inputs
+            this.flushAudioInput.finish();
+            // flush pending text inputs
+            for (const params of this.pendingInputParams.splice(0)) {
+              this.sendInput(params);
+            }
+          },
           onmessage: (message) => this.handleMessage(message),
-          onerror: (error) => this.handleError(error),
-          onclose: (event) => this.handleClose(event),
+          onerror: (error) => {
+            log(`[${this.id}] API error:`, error);
+          },
+          onclose: (event) => {
+            log(`[${this.id}] connection closed:`, event.reason);
+            this.session = null;
+            this.connected = false;
+            this.connecting = false;
+            // reconnect automatically unless destroyed
+            if (!this.destroyed) {
+              const key = Symbol();
+              this.reconnectKey = key;
+              this.connect(key);
+            }
+          },
         },
       });
-
-      this.isConnected = true;
-      this.startAudioFlushLoop();
     } catch (error) {
-      log("connection failed:", error);
-      throw error;
+      log(`[${this.id}] connection failed:`, error);
+      this.session = null;
+      this.connected = false;
+      this.connecting = false;
+      // retry after 1s
+      const key = Symbol();
+      this.reconnectKey = key;
+      // 我們暫時不考慮重連風暴風險
+      setTimeout(() => this.connect(key), 1_000);
     }
+    return this;
   }
 
-  private startAudioFlushLoop(): void {
-    if (this.audioFlushTimer) return;
-
-    this.audioFlushTimer = setInterval(() => {
-      if (!this.isConnected || !this.session) return;
-      if (this.pendingAudioChunks.length === 0) return;
-
-      const pcm = Buffer.concat(this.pendingAudioChunks);
-      this.pendingAudioChunks = [];
-
-      try {
-        const base64Audio = pcm.toString("base64");
-
-        this.session.sendRealtimeInput({
-          audio: {
-            data: base64Audio,
-            mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
-          },
-        });
-
-        log("sent audio chunk: %d bytes", pcm.length);
-      } catch (error) {
-        log("failed to send audio:", error);
+  protected sendInput(params: LiveSendRealtimeInputParameters) {
+    if (!this.connected || !this.session) {
+      if (this.pendingInputParams.length >= MAX_PENDING_INPUT_PARAMS_LENGTH) {
+        this.pendingInputParams.shift();
       }
-    }, AUDIO_SEND_INTERVAL_MS);
-  }
-
-  private stopAudioFlushLoop(): void {
-    if (this.audioFlushTimer) {
-      clearInterval(this.audioFlushTimer);
-      this.audioFlushTimer = null;
+      this.pendingInputParams.push(params);
+      return;
     }
-    this.pendingAudioChunks = [];
+
+    try {
+      this.session.sendRealtimeInput(params);
+      if (params.text) log(`[${this.id}] text input:`, params.text);
+      if (params.audio)
+        log(
+          `[${this.id}] audio input: base64 length: ${params.audio.data?.length}`
+        );
+    } catch (error) {
+      log(`[${this.id}] error sending input:`, error);
+    }
   }
 
-  private handleOpen(): void {
-    log("connected to Gemini Live API");
+  sendTextInput(text: string): void {
+    this.sendInput({ text });
   }
+
+  sendAudioInput(buffer: Buffer) {
+    if (
+      this.pendingAudioInputChunks.length >=
+      MAX_PENDING_AUDIO_INPUT_CHUNKS_LENGTH
+    ) {
+      this.flushAudioInput.finish();
+    }
+    this.pendingAudioInputChunks.push(buffer);
+    this.flushAudioInput();
+  }
+
+  protected sendAudioOutput(buffer: Buffer) {
+    this.pendingAudioOutputChunks.push(buffer);
+    this.flushAudioOutput();
+  }
+
+  readonly flushAudioInput = throttle(() => {
+    if (this.pendingAudioInputChunks.length === 0) return;
+
+    const buffer = Buffer.concat(this.pendingAudioInputChunks.splice(0));
+    const base64Audio = buffer.toString("base64");
+
+    this.sendInput({
+      audio: {
+        data: base64Audio,
+        mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
+      },
+    });
+  }, AUDIO_THROTTLE_DELAY_MS);
+
+  protected readonly flushAudioOutput = throttle(() => {
+    if (this.pendingAudioOutputChunks.length === 0) return;
+
+    const buffer = Buffer.concat(this.pendingAudioOutputChunks.splice(0));
+
+    this.notify({
+      type: AssistantEventType.AudioChunk,
+      chunk: buffer,
+    });
+
+    log(`[${this.id}] audio output: ${buffer.length} bytes`);
+  }, AUDIO_THROTTLE_DELAY_MS);
 
   private handleMessage(message: LiveServerMessage): void {
     const { serverContent } = message;
@@ -128,7 +244,8 @@ export class RealtimeAssistant {
     if (!serverContent) return;
 
     if (serverContent.interrupted) {
-      log("response interrupted");
+      this.notify({ type: AssistantEventType.Interrupted });
+      log(`[${this.id}] response interrupted`);
       return;
     }
 
@@ -138,6 +255,8 @@ export class RealtimeAssistant {
       for (const part of parts) {
         if (part.inlineData?.data) {
           const audioBuffer = Buffer.from(part.inlineData.data, "base64");
+
+          // Resample and play audio buffer for testing
           serverSpeaker.play(
             resamplePcmAudioBuffer(
               audioBuffer,
@@ -146,87 +265,55 @@ export class RealtimeAssistant {
             )
           );
 
-          log("received audio chunk: %d bytes", audioBuffer.length);
+          this.sendAudioOutput(audioBuffer);
         }
 
         if (part.functionCall) {
-          log("received function call:", part.functionCall);
-        } else if (part.functionResponse) {
-          log("received function response:", part.functionResponse);
+          log(`[${this.id}] received function call:`, part.functionCall);
+          this.notify({
+            type: AssistantEventType.ToolCall,
+            name: part.functionCall.name ?? "UNKNOWN_TOOL",
+          });
+        }
+
+        if (part.functionResponse) {
+          log(
+            `[${this.id}] received function response:`,
+            part.functionResponse
+          );
         }
 
         if (part.text) {
-          log("received transcript: %s", part.text);
+          log(`[${this.id}] received transcript:`, part.text);
+          this.notify({ type: AssistantEventType.TextChunk, chunk: part.text });
         }
       }
     }
 
     if (serverContent.turnComplete) {
-      log("response complete");
+      log(`[${this.id}] response complete`);
     }
   }
 
-  private handleError(error: ErrorEvent): void {
-    log("API error:", error);
-  }
-
-  private handleClose(event: CloseEvent): void {
-    log("connection closed: %s", event.reason);
-    this.isConnected = false;
-    this.stopAudioFlushLoop();
-  }
-
-  addAudioBuffer(pcm: Buffer): void {
-    if (!this.isConnected || !this.session) {
-      log("not connected");
-      return;
-    }
-
-    // Queue audio; it will be sent every 250ms by the flush loop
-    this.pendingAudioChunks.push(pcm);
-  }
-
-  sendText(text: string): void {
-    if (!this.isConnected || !this.session) {
-      log("not connected");
-      return;
-    }
-
-    try {
-      this.session.sendRealtimeInput({
-        text: text,
-      });
-      log("sent text:", text);
-    } catch (error) {
-      log("failed to send text:", error);
-    }
-  }
-
-  async disconnect(): Promise<void> {
+  async destroy(): Promise<void> {
+    this.destroyed = true;
     if (this.session) {
       try {
+        // force close the session
         this.session.close();
-        log("disconnected");
-      } catch (error) {
-        log("disconnect error:", error);
+      } catch {
+        // ignore force closing error
       }
       this.session = null;
-      this.isConnected = false;
-      this.stopAudioFlushLoop();
+      this.connected = false;
     }
   }
 
-  get connected(): boolean {
-    return this.isConnected;
+  get isConnected() {
+    return this.connected;
+  }
+
+  get isDestroyed() {
+    return this.destroyed;
   }
 }
-
-(async () => {
-  const assistant = new RealtimeAssistant();
-
-  await assistant.connect();
-
-  serverMic.subscribe((pcm) => {
-    assistant.addAudioBuffer(pcm);
-  });
-})();

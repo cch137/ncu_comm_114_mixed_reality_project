@@ -1,7 +1,6 @@
 import debug from "debug";
 import { WSEvents, WSContext } from "hono/ws";
 import { z } from "zod";
-import { serverMic, serverSpeaker } from "./audio";
 import {
   AnchorState,
   EntityController,
@@ -13,7 +12,11 @@ import {
 } from "./entities";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
-export * as Assistant from "./assistant";
+import {
+  AssistantEvent,
+  AssistantEventType,
+  RealtimeAssistant,
+} from "./assistant";
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
 
@@ -30,6 +33,8 @@ export enum ServerEvent {
   UpdateEntity = "UpdateEntity",
   DelEntity = "DelEntity",
   Audio = "Audio",
+  FlushAudio = "FlushAudio",
+  Transcript = "Transcript",
   JoinRoomOK = "JoinRoomOK",
   JoinRoomError = "JoinRoomError",
   LeaveRoomOK = "LeaveRoomOK",
@@ -117,7 +122,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
   readonly leftHand = new AnchorState();
   readonly rightHand = new AnchorState();
 
-  private isDestroyed = false;
+  private destroyed = false;
   protected lastReceivedAtMs: number = Date.now();
 
   constructor(options: RealtimeClientOptions = {}) {
@@ -139,10 +144,6 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     return this._ws;
   }
 
-  private speakerCallback = (pcm: Buffer<ArrayBufferLike>) => {
-    this.send(ServerEvent.Audio, { pcm: pcm.toString("base64") });
-  };
-
   initialize(ws: WSContext<WebSocket>) {
     if (this._ws) {
       if (this._ws === ws) return;
@@ -153,12 +154,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     this._ws = ws;
     log(`client [${this.id}] connected`);
     this.scheduleInterval(() => this.send(ServerEvent.Ping), this.heartbeatMs);
-    // 這裡是暫時性的接上 serverSpeaker
-    serverSpeaker.subscribe(this.speakerCallback);
   }
 
   scheduleTimeout(cb: () => void, timeoutMs: number) {
-    if (this.isDestroyed) throw new Error("Client is destroyed");
+    if (this.destroyed) throw new Error("Client is destroyed");
     const task = new ScheduledTask(
       setTimeout(() => {
         this.timeouts.delete(task);
@@ -166,16 +165,24 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
       }, timeoutMs)
     );
     this.timeouts.add(task);
+    return () => {
+      clearTimeout(task.timeout);
+      this.timeouts.delete(task);
+    };
   }
 
   scheduleInterval(cb: () => void, intervalMs: number) {
-    if (this.isDestroyed) throw new Error("Client is destroyed");
+    if (this.destroyed) throw new Error("Client is destroyed");
     const task = new ScheduledTask(setInterval(() => cb(), intervalMs));
     this.intervals.add(task);
+    return () => {
+      clearInterval(task.timeout);
+      this.intervals.delete(task);
+    };
   }
 
   destroy() {
-    this.isDestroyed = true;
+    this.destroyed = true;
     try {
       this.ws.close();
     } catch {
@@ -183,10 +190,10 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     }
     log(`client [${this.id}] disconnected`);
     this.intervals.forEach((i) => clearInterval(i.timeout));
+    this.intervals.clear();
     this.timeouts.forEach((i) => clearTimeout(i.timeout));
+    this.timeouts.clear();
     if (this[CLIENT_ROOM]) RealtimeRoom.leave(this[CLIENT_ROOM]?.id, this);
-    // 這裡是暫時性的接上 serverSpeaker
-    serverSpeaker.unsubscribe(this.speakerCallback);
   }
 
   private send(type: ServerEvent, data?: any) {
@@ -280,6 +287,18 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
     }
   }
 
+  playAudio(buffer: Buffer) {
+    this.send(ServerEvent.Audio, { pcm: buffer.toString("base64") });
+  }
+
+  sendTranscript(text: string) {
+    this.send(ServerEvent.Transcript, { text });
+  }
+
+  flushAudio() {
+    this.send(ServerEvent.FlushAudio);
+  }
+
   handleMessage(type: ClientEvent | string, data: unknown) {
     log(`message received: client [${this.id}]: ${type}`);
     this.lastReceivedAtMs = Date.now();
@@ -325,8 +344,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
       case ClientEvent.Audio: {
         try {
           const { pcm } = AudioPacketSchema.parse(data);
-          // TODO: serverMic 是暫時性的測試，需要這裡的 pcm 傳給 realtime ai
-          serverMic.play(Buffer.from(pcm, "base64"));
+          this[CLIENT_ROOM]?.sendAudioInput(Buffer.from(pcm, "base64"));
         } catch (e) {
           this.sendError("invalid Audio params");
         }
@@ -370,8 +388,14 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
       case ClientEvent.JoinRoom: {
         try {
           const { id } = ItemIdPacketSchema.parse(data);
-          RealtimeRoom.join(id, this);
-          this.send(ServerEvent.JoinRoomOK, { id });
+          try {
+            RealtimeRoom.join(id, this);
+            this.send(ServerEvent.JoinRoomOK, { id });
+          } catch (err) {
+            this.send(ServerEvent.JoinRoomError, {
+              reason: "unexpected error",
+            });
+          }
         } catch {
           this.send(ServerEvent.JoinRoomError, { reason: "invalid params" });
         }
@@ -380,8 +404,14 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
       case ClientEvent.LeaveRoom: {
         try {
           const { id } = ItemIdPacketSchema.parse(data);
-          RealtimeRoom.leave(id, this);
-          this.send(ServerEvent.LeaveRoomOK, { id });
+          try {
+            RealtimeRoom.leave(id, this);
+            this.send(ServerEvent.LeaveRoomOK, { id });
+          } catch (err) {
+            this.send(ServerEvent.LeaveRoomError, {
+              reason: "unexpected error",
+            });
+          }
         } catch {
           this.send(ServerEvent.LeaveRoomError, { reason: "invalid params" });
         }
@@ -423,10 +453,14 @@ class RealtimeRoom {
     const room = RealtimeRoom.get(id);
     if (room) {
       room.removeClient(client);
-      if (room.clients.size === 0) RealtimeRoom.rooms.delete(room.id);
+      if (room.clients.size === 0) {
+        RealtimeRoom.rooms.delete(room.id);
+        room.destroy();
+      }
     }
   }
 
+  protected readonly assistant = new RealtimeAssistant();
   protected readonly clients = new Set<RealtimeClient>();
   protected readonly entities = new Map<string, EntityState>();
   protected readonly entitiesUpdateCallbacks = new WeakMap<
@@ -434,7 +468,27 @@ class RealtimeRoom {
     (state: EntityStateUpdateEvent) => void
   >();
 
-  private constructor(public readonly id: string) {}
+  private assistantSubscriber = (event: AssistantEvent) => {
+    switch (event.type) {
+      case AssistantEventType.AudioChunk: {
+        this.forEach((c) => c.playAudio(event.chunk));
+        break;
+      }
+      case AssistantEventType.TextChunk: {
+        this.forEach((c) => c.sendTranscript(event.chunk));
+        break;
+      }
+      case AssistantEventType.Interrupted: {
+        this.forEach((c) => c.flushAudio());
+        break;
+      }
+    }
+  };
+
+  private constructor(public readonly id: string) {
+    this.assistant.subscribe(this.assistantSubscriber);
+    this.assistant.connect();
+  }
 
   private addClient(client: RealtimeClient) {
     if (this.clients.has(client)) return;
@@ -460,6 +514,23 @@ class RealtimeRoom {
     if (client[CLIENT_ROOM] === this) client[CLIENT_ROOM] = null;
   }
 
+  forEach(cb: (c: RealtimeClient) => void) {
+    const errors: unknown[] = [];
+    for (const c of this.clients.values()) {
+      try {
+        cb(c);
+      } catch (err) {
+        errors.push(err);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(
+        errors,
+        `errors in ${RealtimeRoom.name}.${this.forEach.name}()`
+      );
+    }
+  }
+
   getEntities() {
     return Array.from(this.entities.values());
   }
@@ -479,16 +550,16 @@ class RealtimeRoom {
     this.entities.set(entity.id, entity);
     const cb = (state: EntityStateUpdateEvent) => {
       if (state.type === EntityStateUpdateEventType.Pose) {
-        for (const c of this.clients) c.updateEntity(entity);
+        this.forEach((c) => c.updateEntity(entity));
       }
     };
     this.entitiesUpdateCallbacks.set(entity, cb);
     entity.subscribe(cb);
-    for (const c of this.clients) c.createEntity(entity);
+    this.forEach((c) => c.createEntity(entity));
   }
 
   removeEntity(entity: EntityState) {
-    this.clients.forEach((client) => client.dropEntity(entity));
+    this.forEach((c) => c.dropEntity(entity));
     const cb = this.entitiesUpdateCallbacks.get(entity);
     if (cb) entity.unsubscribe(cb);
     this.entitiesUpdateCallbacks.delete(entity);
@@ -511,8 +582,16 @@ class RealtimeRoom {
     return this.entities.get(entityId)?.release(controller) ?? false;
   }
 
-  [Symbol.iterator]() {
-    return this.clients[Symbol.iterator]();
+  /** 發送 audio input 給 AI */
+  sendAudioInput(buffer: Buffer) {
+    return this.assistant.sendAudioInput(buffer);
+  }
+
+  destroy() {
+    Array.from(this.entities.values()).forEach((e) => this.removeEntity(e));
+    Array.from(this.clients.values()).forEach((c) => this.removeClient(c));
+    this.assistant.unsubscribe(this.assistantSubscriber);
+    this.assistant.destroy();
   }
 }
 
@@ -524,23 +603,21 @@ function isValidPacket(
   return false;
 }
 
-const clientsWeakMap = new WeakMap<WSContext<WebSocket>, RealtimeClient>();
+export const realtimeHandler = (() => {
+  const clientRecord = new WeakMap<WSContext<WebSocket>, RealtimeClient>();
 
-export function realtimeHandler(): WSEvents<WebSocket> {
-  let client: RealtimeClient | null = null;
-
-  return {
+  return (): WSEvents<WebSocket> => ({
     onOpen(_event, ws) {
-      client = clientsWeakMap.get(ws) ?? null;
+      let client = clientRecord.get(ws);
       if (!client) {
         client = new RealtimeClient();
-        clientsWeakMap.set(ws, client);
+        clientRecord.set(ws, client);
       }
       client.initialize(ws);
     },
 
     async onMessage(event, ws) {
-      client ??= clientsWeakMap.get(ws) ?? null;
+      const client = clientRecord.get(ws);
       if (!client) return log("client was unexpectedly not found");
       try {
         const parsed =
@@ -561,9 +638,9 @@ export function realtimeHandler(): WSEvents<WebSocket> {
     },
 
     onClose(_event, ws) {
-      client ??= clientsWeakMap.get(ws) ?? null;
+      const client = clientRecord.get(ws);
       if (!client) return log("client was unexpectedly not found");
       client.destroy();
     },
-  };
-}
+  });
+})();
