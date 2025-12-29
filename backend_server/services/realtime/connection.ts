@@ -382,7 +382,7 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
   }
 }
 
-class RealtimeRoom {
+export class RealtimeRoom {
   private static readonly rooms = new Map<string, RealtimeRoom>();
 
   static get(id: string) {
