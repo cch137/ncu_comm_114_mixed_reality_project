@@ -49,7 +49,8 @@ export enum Status {
 const log = debug("obj-dsgn");
 
 const instructions = (() => {
-  const generationP = loadInstructionsTemplate<ObjectProps>("generation");
+  const generationP =
+    loadInstructionsTemplate<ObjectProps>("threejs-generation");
 
   return {
     generation: async (params: ObjectProps) => (await generationP)(params),
