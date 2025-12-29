@@ -15,7 +15,7 @@ export class ProtectedTinyNotifier<T = unknown> {
     return true;
   }
 
-  notify(message: T) {
+  protected notify(message: T) {
     const errors: unknown[] = [];
     const snapshot = this.callbacks.slice();
     for (const cb of snapshot) {
