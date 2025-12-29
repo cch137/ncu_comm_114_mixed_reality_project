@@ -1,8 +1,10 @@
 (async () => {
   const startButton = document.getElementById("start-btn");
   const micButton = document.getElementById("mic-btn");
+  const volumeSlider = document.getElementById("volume-slider");
   if (!startButton) throw new Error("start button not found");
   if (!micButton) throw new Error("mic button not found");
+  if (!volumeSlider) throw new Error("Volume slider not found");
 
   startButton.addEventListener("click", start, { once: true });
   micButton.disabled = true;
@@ -22,6 +24,18 @@
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx({ sampleRate });
+
+    const gainNode = ctx.createGain();
+
+    gainNode.gain.value = parseFloat(volumeSlider.value) / 100;
+    gainNode.connect(ctx.destination);
+
+    const handleVolumeChange = () => {
+      const volumeFraction = parseFloat(volumeSlider.value) / 100;
+      gainNode.gain.setTargetAtTime(volumeFraction, ctx.currentTime, 0.01);
+    };
+
+    volumeSlider.addEventListener("input", handleVolumeChange);
 
     let isClosed = false;
     let nextStartTime = 0;
@@ -275,7 +289,7 @@
 
       const src = ctx.createBufferSource();
       src.buffer = buffer;
-      src.connect(ctx.destination);
+      src.connect(gainNode);
 
       const now = ctx.currentTime;
       if (nextStartTime < now + 0.02) nextStartTime = now + 0.02;
