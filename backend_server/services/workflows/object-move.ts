@@ -12,25 +12,6 @@ import {
 const debug = createDebug("mv-fn");
 
 // -------------------- Schemas --------------------
-export const ObjectPropsSchema = z.object({
-    object_name: z.string().min(1),
-    object_description: z.string().optional().default(""),
-});
-
-export type ObjectProps = z.infer<typeof ObjectPropsSchema>;
-
-// -------------------- Schemas --------------------
-export const ObjectPropsSchema = z.object({
-  object_name: z.string().min(1),
-  object_description: z.string().optional().default(""),
-});
-
-export type ObjectProps = z.infer<typeof ObjectPropsSchema>;
-
-export const PoseSchema = z.object({
-    pos: z.tuple([z.number(), z.number(), z.number()]),
-    rot: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-});
 
 export const RelativeMoveSchema = z.object({
   relative: z.object({
@@ -140,6 +121,31 @@ export class MoveObjectTask extends EventEmitter {
     const prevTail = this.objectQueueTail.get(objectId) ?? Promise.resolve();
     const prevSafe = prevTail.catch(() => {});
 
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const newTail = prevSafe.then(() => current);
+    this.objectQueueTail.set(objectId, newTail);
+
+    newTail.finally(() => {
+      if (this.objectQueueTail.get(objectId) === newTail) {
+        this.objectQueueTail.delete(objectId);
+      }
+    });
+
+    return { waitTurn: prevSafe, release };
+  }
+
+  static create(options: { client: RealtimeClient; command: MoveCommand }) {
+    return new MoveObjectTask(options);
+  }
+
+  static get(id: string) {
+    return this.record.get(id) ?? null;
+  }
+
   static getState(id: string): MoveTaskState | null {
     return this.record.get(id)?.getState() ?? null;
   }
@@ -151,11 +157,6 @@ export class MoveObjectTask extends EventEmitter {
       return true;
     }
     return false;
-  }
-
-  static delete(id: string) {
-    this.cancel(id);
-    return this.record.delete(id);
   }
 
   static cleanupInactive(ttlMs: number) {
@@ -175,7 +176,6 @@ export class MoveObjectTask extends EventEmitter {
   readonly id: string;
   private readonly client: RealtimeClient;
   private readonly command: MoveCommand;
-  private readonly timeoutMs: number;
 
   private cancelled = false;
   private taskPromise: Promise<void> | null = null;
@@ -185,38 +185,28 @@ export class MoveObjectTask extends EventEmitter {
   private reason: string | null = null;
 
   private endAtMs: number | null = null;
+  private releaseQueueSlot: (() => void) | null = null;
 
   private constructor(options: {
     client: RealtimeClient;
     command: MoveCommand;
-    timeoutMs?: number;
   }) {
     super();
-
-    const command = MoveCommandSchema.parse(options.command);
-
     this.client = options.client;
-    this.command = command;
-    this.timeoutMs = options.timeoutMs ?? 10_000;
-
-    this.id = crypto.randomUUID();
+    this.command = MoveCommandSchema.parse(options.command);
+    this.id = generateRandomId();
     MoveObjectTask.record.set(this.id, this);
-
-    debug(
-      `task[${this.id}] queued move for object '${this.command.object_id}'`
-    );
+    debug(`task[${this.id}] queued move for '${this.command.object_id}'`);
   }
 
-  private get status() {
+  get status() {
     return this._status;
   }
-
-  private set status(status: MoveStatus) {
-    if (status === this._status) return;
+  private set status(v: MoveStatus) {
+    if (v === this._status) return;
     const oldStatus = this._status;
-    this._status = status;
-    this.emit("statusChange", status, oldStatus);
-    debug(`task[${this.id}] status changed from '${oldStatus}' to '${status}'`);
+    this._status = v;
+    this.emit("statusChange", v, oldStatus);
   }
 
   getState(): MoveTaskState {
@@ -240,32 +230,65 @@ export class MoveObjectTask extends EventEmitter {
   execute() {
     if (this.taskPromise) return this.taskPromise;
 
-    this.status = MoveStatus.PROCESSING;
     this.taskPromise = new Promise<void>((resolve) => {
-      if (this.cancelled) return resolve();
+      const { waitTurn, release } = MoveObjectTask.enqueueForObject(
+        this.command.object_id
+      );
+      this.releaseQueueSlot = release;
 
-      const requestId = crypto.randomUUID();
-
-      this.client.sendMoveObject({
-        requestId,
-        objectId: this.command.object_id,
-        to: this.command.to,
-        durationMs: this.command.durationMs,
-      });
-
-      this.client
-        .waitMoveAck(requestId, this.timeoutMs)
-        .then((ack) => {
+      waitTurn
+        .then(async () => {
           if (this.cancelled) return;
 
-          if (ack.ok) {
-            this.finalPose = ack.finalPose;
+          this.status = MoveStatus.PROCESSING;
+
+          const room = getRoomFromClient(this.client);
+          if (!room) {
+            throw new Error("Client is not in any room.");
+          }
+
+          const entity = room.getEntityById(this.command.object_id);
+          if (!entity) {
+            throw new Error(
+              `Entity '${this.command.object_id}' not found in current room.`
+            );
+          }
+
+          // 計算絕對座標
+          const absTarget = resolveTargetPose({
+            current: entity.pose,
+            to: this.command.to,
+          });
+
+          // Claim
+          // 假設 RealtimeClient 上有 controller 屬性 (型別來自 connection.ts)
+          const controller = (this.client as any).controller;
+          const claimed = room.claimEntityById(controller, entity.id);
+
+          if (!claimed) {
+            throw new Error(`Failed to claim entity '${entity.id}'.`);
+          }
+
+          try {
+            // Update
+            const ok = room.updateEntityById(controller, entity.id, {
+              pose: absTarget,
+            });
+            if (!ok) {
+              throw new Error(`Failed to update pose for '${entity.id}'.`);
+            }
+
+            // 重新抓取確認
+            const updated = room.getEntityById(entity.id)?.pose ?? absTarget;
+
+            this.finalPose = updated;
             this.reason = null;
             this.status = MoveStatus.COMPLETED;
-          } else {
-            this.finalPose = null;
-            this.reason = ack.reason;
-            this.status = MoveStatus.FAILED;
+          } finally {
+            // Release
+            if (claimed) {
+              room.releaseEntityById(controller, entity.id);
+            }
           }
         })
         .catch((err) => {
@@ -275,23 +298,45 @@ export class MoveObjectTask extends EventEmitter {
           this.status = MoveStatus.FAILED;
         })
         .finally(() => {
-          resolve();
+          try {
+            this.releaseQueueSlot?.();
+          } finally {
+            this.releaseQueueSlot = null;
+          }
           if (this.endAtMs === null) this.endAtMs = Date.now();
+          resolve();
         });
+    });
 
-    const newTail = prevSafe.then(() => current);
-    this.objectQueueTail.set(objectId, newTail);
+    return this.taskPromise;
+  }
 
   cancel() {
     if (
       this.status === MoveStatus.COMPLETED ||
       this.status === MoveStatus.FAILED
-    ) {
+    )
       return;
+
+    const wasQueued = this.status === MoveStatus.QUEUED;
+    this.cancelled = true;
+    this.finalPose = null;
+    this.reason = "Task was cancelled";
+    this.status = MoveStatus.FAILED;
+    this.endAtMs = Date.now();
+
+    if (wasQueued) {
+      try {
+        this.releaseQueueSlot?.();
+      } finally {
+        this.releaseQueueSlot = null;
+      }
     }
   }
 }
 
+// Timer for cleanup
+let cleanupTimerStarted = false;
 (() => {
   if (cleanupTimerStarted) return;
   cleanupTimerStarted = true;
