@@ -14,7 +14,7 @@ public class UpdateState : MonoBehaviour
             NetworkManager.Instance.OnUpdateEntity -= HandleUpdateEntity;
     }
 
-    private void HandleUpdateEntity(EntityBaseData data)
+    private void HandleUpdateEntity(EntityData data)
     {
         GameObject target = EntityManager.Instance.GetEntity(data.id);
 

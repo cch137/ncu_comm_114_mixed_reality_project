@@ -60,6 +60,20 @@ public class EntityManager : MonoBehaviour
         }
     }
 
+    // ---------------------------------------------------------
+    //  請將這一段加在這裡 (RemoveEntity 下方)
+    // ---------------------------------------------------------
+    public void ClearAll()
+    {
+        foreach (var obj in spawnedEntities.Values)
+        {
+            if (obj != null) Destroy(obj);
+        }
+        spawnedEntities.Clear();
+        Debug.Log("[EntityManager] 已清空所有網路物件");
+    }
+    // ---------------------------------------------------------
+
     /// <summary>
     /// 工具：將 PoseData 轉為 Unity 的 Vector3/Quaternion
     /// </summary>

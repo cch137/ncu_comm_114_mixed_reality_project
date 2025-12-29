@@ -6,19 +6,14 @@ using System.Collections.Concurrent;
 public class AudioReceiver : MonoBehaviour
 {
     private AudioSource audioSource;
-
-    // 執行緒安全的佇列
     private ConcurrentQueue<float> audioQueue = new ConcurrentQueue<float>();
 
     [Header("音訊設定")]
-    [Tooltip("必須與 Server 錄音的取樣率一致 (例如 16000, 44100, 48000)")]
     public int sampleRate = 16000;
-
-    [Tooltip("緩衝多少樣本才開始播放 (防止網路抖動造成的爆音)")]
-    // 假設 16000Hz，緩衝 0.1秒 = 1600 個樣本
     public int bufferThreshold = 1600;
 
-    private bool isBuffering = true;
+    // 用來控制是否正在播放，或是在等待資料累積
+    private volatile bool isBuffering = true;
 
     void Start()
     {
@@ -27,9 +22,10 @@ public class AudioReceiver : MonoBehaviour
         if (NetworkManager.Instance != null)
         {
             NetworkManager.Instance.OnAudioReceived += HandleAudioData;
+            // ★ 訂閱 Flush 事件
+            NetworkManager.Instance.OnFlushAudio += HandleFlushAudio;
         }
 
-        // ★ 關鍵：建立一個對應頻率的空 Clip
         audioSource.loop = true;
         audioSource.clip = AudioClip.Create("VoIP_Stream", sampleRate, 1, sampleRate, false);
         audioSource.Play();
@@ -40,64 +36,75 @@ public class AudioReceiver : MonoBehaviour
         if (NetworkManager.Instance != null)
         {
             NetworkManager.Instance.OnAudioReceived -= HandleAudioData;
+            // ★ 取消訂閱
+            NetworkManager.Instance.OnFlushAudio -= HandleFlushAudio;
         }
     }
 
-    // 1. 接收資料 (Main Thread 或 Network Thread)
+    // ★★★ 新增：處理中斷訊號 ★★★
+    void HandleFlushAudio()
+    {
+        // 1. 清空所有累積的舊音訊
+        // ConcurrentQueue 在舊版 .NET 沒有 Clear()，用 TryDequeue 迴圈清空最保險
+        while (audioQueue.TryDequeue(out _)) { }
+
+        // 2. 進入緩衝狀態 (這會導致 OnAudioFilterRead 填入靜音，直到新資料來)
+        isBuffering = true;
+
+        Debug.Log("[AudioReceiver] 已清空緩衝佇列，暫停播放等待新資料...");
+    }
+
     void HandleAudioData(AudioData data)
     {
+        // 如果 Server 送來的資料是空的，直接忽略
         if (string.IsNullOrEmpty(data.pcm)) return;
 
         byte[] bytes = Convert.FromBase64String(data.pcm);
         float[] newSamples = ConvertByteToFloat(bytes);
 
+        // 將新資料放入 Queue
         foreach (float sample in newSamples)
         {
             audioQueue.Enqueue(sample);
         }
     }
 
-    // 2. 播放邏輯 (Audio Thread - 極高頻率呼叫)
+    // 音訊執行緒 (高頻呼叫)
     void OnAudioFilterRead(float[] data, int channels)
     {
-        // 如果正在緩衝狀態，檢查是否累積足夠資料
+        // 如果正在緩衝狀態 (剛開始 或 剛被 Flush)
         if (isBuffering)
         {
+            // 檢查累積的資料夠不夠
             if (audioQueue.Count >= bufferThreshold)
             {
-                isBuffering = false; // 累積夠了，開始播放
+                isBuffering = false; // 資料夠了，開始播放
             }
             else
             {
-                // 還沒夠，先填靜音
+                // 資料不夠，輸出靜音
                 Array.Clear(data, 0, data.Length);
                 return;
             }
         }
 
-        // 開始填入資料
+        // 正常播放邏輯
         for (int i = 0; i < data.Length; i += channels)
         {
             if (audioQueue.TryDequeue(out float sample))
             {
                 data[i] = sample;
-
-                // 處理多聲道 (複製單聲道資料到所有聲道)
                 if (channels > 1)
                 {
-                    for (int c = 1; c < channels; c++)
-                    {
-                        data[i + c] = sample;
-                    }
+                    for (int c = 1; c < channels; c++) data[i + c] = sample;
                 }
             }
             else
             {
-                // 資料用盡 (Buffer Underrun)
-                // 填入靜音並重新進入緩衝狀態，避免斷斷續續的雜音
+                // ★ Buffer Underrun (播到沒資料了)
+                // 這種情況也視為一種「小斷線」，填靜音並重新緩衝
                 data[i] = 0;
                 if (channels > 1) data[i + 1] = 0;
-
                 isBuffering = true;
             }
         }
@@ -105,7 +112,6 @@ public class AudioReceiver : MonoBehaviour
 
     private float[] ConvertByteToFloat(byte[] array)
     {
-        // 假設是 16-bit PCM (Short)
         float[] floatArr = new float[array.Length / 2];
         for (int i = 0; i < floatArr.Length; i++)
         {

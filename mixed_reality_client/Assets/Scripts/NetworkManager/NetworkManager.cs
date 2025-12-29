@@ -23,10 +23,12 @@ public class NetworkManager : MonoBehaviour
 
     // 實體相關事件
     public event Action<CreateProgObjData> OnCreateProgObj;
-    public event Action<EntityBaseData> OnCreateGeomObj;
-    public event Action<EntityBaseData> OnCreateAnchor;
-    public event Action<EntityBaseData> OnUpdateEntity;
+    public event Action<EntityData> OnCreateGeomObj;
+    public event Action<EntityData> OnCreateAnchor;
+    public event Action<EntityData> OnUpdateEntity;
     public event Action<DeleteEntityData> OnDelEntity;
+    public event Action OnFlushAudio;
+    public event Action<string> OnTranscriptReceived;
 
     // 錯誤處理
     public event Action<string> OnError;
@@ -110,17 +112,17 @@ public class NetworkManager : MonoBehaviour
                 break;
 
             case "CreateEntityGeomObj":
-                var geomMsg = JsonUtility.FromJson<MessageWrapper<EntityBaseData>>(jsonString);
+                var geomMsg = JsonUtility.FromJson<MessageWrapper<EntityData>>(jsonString);
                 OnCreateGeomObj?.Invoke(geomMsg.data);
                 break;
 
             case "CreateEntityAnchor":
-                var anchorMsg = JsonUtility.FromJson<MessageWrapper<EntityBaseData>>(jsonString);
+                var anchorMsg = JsonUtility.FromJson<MessageWrapper<EntityData>>(jsonString);
                 OnCreateAnchor?.Invoke(anchorMsg.data);
                 break;
 
             case "UpdateEntity":
-                var updateMsg = JsonUtility.FromJson<MessageWrapper<EntityBaseData>>(jsonString);
+                var updateMsg = JsonUtility.FromJson<MessageWrapper<EntityData>>(jsonString);
                 OnUpdateEntity?.Invoke(updateMsg.data);
                 break;
 
@@ -158,6 +160,24 @@ public class NetworkManager : MonoBehaviour
             case "Audio":
                 var audio = JsonUtility.FromJson<MessageWrapper<AudioData>>(jsonString);
                 OnAudioReceived?.Invoke(audio.data);
+                break;
+
+            case "FlushAudio":
+                // 收到打斷訊號，觸發事件
+                Debug.Log("<color=magenta>[Network] 收到 FlushAudio，要求清空音訊緩衝</color>");
+                OnFlushAudio?.Invoke();
+                break;
+
+            case "Transcript":
+                var transMsg = JsonUtility.FromJson<MessageWrapper<TranscriptMsg>>(jsonString);
+
+                if (transMsg != null && transMsg.data != null)
+                {
+                    string textContent = transMsg.data.message;
+
+                    Debug.Log($"<color=cyan>[Transcript] AI 說: {textContent}</color>");
+                    OnTranscriptReceived?.Invoke(textContent);
+                }
                 break;
 
             case "Error":
