@@ -22,6 +22,7 @@ const DEFAULT_HEARTBEAT_MS = 10_000;
 
 const log = debug("rltm");
 
+/** These events are sent from the SERVER to the CLIENT. */
 export enum ServerEvent {
   Error = "Error",
   Ping = "Ping",
@@ -40,6 +41,7 @@ export enum ServerEvent {
   LeaveRoomError = "LeaveRoomError",
 }
 
+/** These events are sent from the CLIENT to the SERVER. */
 export enum ClientEvent {
   Ping = "Ping",
   Pong = "Pong",
@@ -458,13 +460,22 @@ export class RealtimeRoom {
     }
   }
 
-  protected readonly assistant = new RealtimeAssistant();
+  protected _assistant: RealtimeAssistant | null = null;
   protected readonly clients = new Set<RealtimeClient>();
   protected readonly entities = new Map<string, EntityState>();
   protected readonly entitiesUpdateCallbacks = new WeakMap<
     EntityState,
     (state: EntityStateUpdateEvent) => void
   >();
+
+  get assistant() {
+    if (!this._assistant) {
+      this._assistant = new RealtimeAssistant();
+      this._assistant.subscribe(this.assistantSubscriber);
+      this._assistant.connect();
+    }
+    return this._assistant;
+  }
 
   private assistantSubscriber = (event: AssistantEvent) => {
     switch (event.type) {
@@ -483,10 +494,7 @@ export class RealtimeRoom {
     }
   };
 
-  private constructor(public readonly id: string) {
-    this.assistant.subscribe(this.assistantSubscriber);
-    this.assistant.connect();
-  }
+  private constructor(public readonly id: string) {}
 
   private addClient(client: RealtimeClient) {
     if (this.clients.has(client)) return;
@@ -588,8 +596,9 @@ export class RealtimeRoom {
   destroy() {
     Array.from(this.entities.values()).forEach((e) => this.removeEntity(e));
     Array.from(this.clients.values()).forEach((c) => this.removeClient(c));
-    this.assistant.unsubscribe(this.assistantSubscriber);
-    this.assistant.destroy();
+    this._assistant?.unsubscribe(this.assistantSubscriber);
+    this._assistant?.destroy();
+    this._assistant = null;
   }
 }
 
