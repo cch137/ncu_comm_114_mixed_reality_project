@@ -9,6 +9,7 @@ import {
   EntityStateUpdateEventType,
   EntityType,
   ProgrammableObjectState,
+  type ProgrammableObjectStateOption,
 } from "./entities";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
@@ -199,14 +200,14 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
   private send(type: ServerEvent, data?: any) {
     const raw = this._ws?.raw;
     if (!raw || raw.readyState !== 1 /* WebSocket.OPEN */) {
-      log(`send skipped: client [${this.id}] ${this.name}: ${type}`);
+      log(`send skipped: client [${this.id}]: ${type}`);
       return;
     }
     try {
       this.ws.send(JSON.stringify({ type, data }));
-      log(`message sent: client [${this.id}] ${this.name}: ${type}`);
+      log(`message sent: client [${this.id}]: ${type}`);
     } catch (err) {
-      log(`send failed: client [${this.id}] ${this.name}: ${type}`);
+      log(`send failed: client [${this.id}]: ${type}`);
     }
   }
 
@@ -425,6 +426,16 @@ export class RealtimeClient extends ProtectedTinyNotifier<{
 
 export class RealtimeRoom {
   private static readonly rooms = new Map<string, RealtimeRoom>();
+
+  // 一個暫時性的用於測試的方法
+  // 用於直接把 programmable object 加入到所有房間
+  static _debug_add_prog_obj_rooms(option: ProgrammableObjectStateOption) {
+    log("_debug_add_prog_obj_rooms", option);
+    RealtimeRoom.rooms.forEach((room) => {
+      const obj = new ProgrammableObjectState(option);
+      room.addEntity(obj);
+    });
+  }
 
   static get(id: string) {
     return RealtimeRoom.rooms.get(id);
