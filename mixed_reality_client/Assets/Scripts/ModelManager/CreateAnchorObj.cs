@@ -14,7 +14,7 @@ public class CreateAnchorObj : MonoBehaviour
             NetworkManager.Instance.OnCreateAnchor -= HandleCreateAnchor;
     }
 
-    private void HandleCreateAnchor(EntityBaseData data)
+    private void HandleCreateAnchor(EntityData data)
     {
         GameObject obj = new GameObject("Anchor");
 

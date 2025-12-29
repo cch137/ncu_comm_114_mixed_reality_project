@@ -14,7 +14,7 @@ public class CreateGeomObj : MonoBehaviour
             NetworkManager.Instance.OnCreateGeomObj -= HandleCreateGeom;
     }
 
-    private void HandleCreateGeom(EntityBaseData data)
+    private void HandleCreateGeom(EntityData data)
     {
         // 生成幾何體
         GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
