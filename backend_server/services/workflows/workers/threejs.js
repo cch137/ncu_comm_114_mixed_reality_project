@@ -166,6 +166,19 @@ function postFail(from, err, logs, droppedLogs) {
       globalThis: null, // set below
       console: capturedConsole,
 
+      // fix: share intrinsics to avoid cross-realm TypedArray mismatch
+      ArrayBuffer,
+      DataView,
+      Uint8Array,
+      Uint8ClampedArray,
+      Uint16Array,
+      Uint32Array,
+      Int8Array,
+      Int16Array,
+      Int32Array,
+      Float32Array,
+      Float64Array,
+
       // minimal APIs needed by typical three.js code/exporter
       THREE,
       GLTFExporter,
