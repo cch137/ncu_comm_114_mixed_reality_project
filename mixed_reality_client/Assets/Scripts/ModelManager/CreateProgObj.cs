@@ -1,9 +1,15 @@
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit; // å¼•ç”¨ XR å¥—ä»¶
+using UnityEngine.XR.Interaction.Toolkit.Interactables; // æ–°ç‰ˆ Unity 6/XRIT 3.x å¯èƒ½éœ€è¦é€™å€‹ï¼Œè‹¥å ±éŒ¯å¯åˆªé™¤
 using GLTFast;
 using System.Threading.Tasks;
 
 public class CreateProgObj : MonoBehaviour
 {
+    [Header("ç”Ÿæˆè¨­å®š")]
+    [Tooltip("å‹¾é¸ï¼šç‰©ä»¶å—é‡åŠ›å½±éŸ¿ã€è½åœ°ã€å¯è¢«ä¸Ÿæ“²ã€‚\nä¸å‹¾é¸ï¼šç‰©ä»¶æœƒæ‡¸æµ®ã€æŠ“å–æ”¾é–‹å¾Œæœƒåœåœ¨åŸè™•(ç„¡é‡åŠ›)ã€‚")]
+    public bool usePhysics = true; // â˜…â˜…â˜… æ–°å¢é€™å€‹å…¬é–‹è®Šæ•¸ â˜…â˜…â˜…
+
     private void Start()
     {
         if (NetworkManager.Instance != null)
@@ -22,49 +28,104 @@ public class CreateProgObj : MonoBehaviour
 
     private async void HandleCreateProgObj(CreateProgObjData data)
     {
-        Debug.Log($"[CreateProgObj] ·Ç³Æ¤U¸ü: {data.gltf.url}");
+        Debug.Log($"[CreateProgObj] æº–å‚™ä¸‹è¼‰: {data.gltf.url}");
 
-        // 1. ¥ı¤U¸ü (³o®É­ÔÁÙ¤£«Ø¥ßª«¥ó¡A©Ò¥H¨S¦³ parent ·|³Q§R°£ªº°İÃD)
+        // 1. ä¸‹è¼‰ GLTF
         var gltf = new GltfImport();
         bool success = await gltf.Load(data.gltf.url);
 
-        // ¦pªG¸}¥»¥»¨­¦b¤U¸ü¹Lµ{¤¤³Q¾P·´¤F¡A´N°±¤â
+        // å¦‚æœä¸‹è¼‰éç¨‹ä¸­è…³æœ¬è¢«éŠ·æ¯€ï¼Œå‰‡åœæ­¢
         if (this == null) return;
 
         if (success)
         {
-            // 2. ¤U¸ü¦¨¥\¤F¡I²{¦b¤~«Ø¥ß·sªº¹CÀ¸ª«¥ó
+            // 2. å»ºç«‹ç©ºçš„çˆ¶ç‰©ä»¶
             GameObject newObj = new GameObject($"ProgObj_{data.gltf.name}");
 
-            // 3. §â¼Ò«¬¥Í¦b­è­è«Ø¦nªºª«¥ó¸Ì­±
+            // 3. å°‡æ¨¡å‹å¯¦ä¾‹åŒ–åˆ°çˆ¶ç‰©ä»¶ä¸‹
             await gltf.InstantiateMainSceneAsync(newObj.transform);
 
-            // ¦w¥şÀË¬d¡G¥Í¦¨¹Lµ{¤¤­Y¸}¥»©Îª«¥ó³Q¾P·´«h°±¤î
+            // å®‰å…¨æª¢æŸ¥
             if (this == null || newObj == null) return;
 
-            // 4. ³]©w¦ì¸m»Pµù¥U (©Ò¦³ÅŞ¿è·h¨ì³o¸Ì)
+            // 4. è¨­å®šä½ç½®èˆ‡è¨»å†Šå¯¦é«”
             EntityManager.Instance.ApplyPose(newObj.transform, data.pose);
             EntityManager.Instance.RegisterEntity(data.id, newObj);
 
-            // 5. ±¾¸ü Grabbable
-            var grabbable = newObj.AddComponent<ObjGrabbable>();
-            grabbable.entityId = data.id;
+            // ==========================================
+            //       ä»¥ä¸‹æ˜¯æ•´åˆå¾Œçš„è‡ªå‹•åŒ–è¨­å®šæµç¨‹
+            // ==========================================
 
-            // 6. ¦Û°Ê­pºâ¨Ã¥[¤J Collider (°w¹ï newObj ³B²z)
+            // 5. è¨­å®š Collider (ç¢°æ’é«”)
             Renderer[] renderers = newObj.GetComponentsInChildren<Renderer>();
-            if (renderers.Length > 0 && newObj.GetComponent<Collider>() == null)
+            if (renderers.Length > 0)
             {
-                var collider = newObj.AddComponent<BoxCollider>();
-                Bounds bounds = renderers[0].bounds;
-                foreach (Renderer r in renderers) bounds.Encapsulate(r.bounds);
-
-                collider.center = newObj.transform.InverseTransformPoint(bounds.center);
-                collider.size = bounds.size;
+                if (newObj.GetComponent<Collider>() == null)
+                {
+                    var collider = newObj.AddComponent<BoxCollider>();
+                    Bounds bounds = renderers[0].bounds;
+                    foreach (Renderer r in renderers) bounds.Encapsulate(r.bounds);
+                    collider.center = newObj.transform.InverseTransformPoint(bounds.center);
+                    collider.size = bounds.size;
+                }
             }
+            else
+            {
+                Debug.LogWarning($"[CreateProgObj] ç‰©ä»¶ {newObj.name} æ²’æœ‰ Rendererï¼Œç„¡æ³•è‡ªå‹•æ·»åŠ  Collider");
+            }
+
+            // 6. è¨­å®š Rigidbody (ç‰©ç†å‰›é«”)
+            Rigidbody rb = newObj.GetComponent<Rigidbody>();
+            if (rb == null) rb = newObj.AddComponent<Rigidbody>();
+
+            rb.mass = 1.0f;
+            rb.linearDamping = 0.5f;   // Unity 6 æ–°ç‰ˆå¯«æ³•
+            rb.angularDamping = 0.05f; // Unity 6 æ–°ç‰ˆå¯«æ³•
+
+            // â˜…â˜…â˜… æ ¹æ“š public bool è¨­å®šç‰©ç†ç‹€æ…‹ â˜…â˜…â˜…
+            if (usePhysics)
+            {
+                rb.useGravity = true;    // é–‹å•Ÿé‡åŠ›
+                rb.isKinematic = false;  // ç”±ç‰©ç†å¼•æ“æ¥ç®¡ (æœƒæ‰è½)
+            }
+            else
+            {
+                rb.useGravity = false;   // é—œé–‰é‡åŠ›
+                rb.isKinematic = true;   // è¨­ç‚º Kinematic (æ‡¸æµ®ï¼Œä¸æœƒè¢«æ’é£›)
+            }
+
+            // 7. è¨­å®š XR Grab Interactable
+            XRGrabInteractable grab = newObj.GetComponent<XRGrabInteractable>();
+            if (grab == null) grab = newObj.AddComponent<XRGrabInteractable>();
+
+            grab.movementType = XRBaseInteractable.MovementType.Kinematic;
+
+            // â˜…â˜…â˜… å¦‚æœä¸ä½¿ç”¨ç‰©ç†ï¼Œå°±ä¸é–‹å•ŸæŠ•æ“²åŠŸèƒ½ï¼Œé¿å…æ€ªç•°è¡Œç‚º â˜…â˜…â˜…
+            grab.throwOnDetach = usePhysics;
+            grab.throwSmoothingDuration = 0.25f;
+
+            // ç¢ºä¿ HoloLens/Quest äº’å‹•å±¤ç´šæ­£ç¢º
+            grab.interactionLayers = InteractionLayerMask.GetMask("Default");
+
+            // 8. æ›è¼‰åŒæ­¥è…³æœ¬ ObjGrabbable ä¸¦ç¶å®šäº‹ä»¶
+            var syncScript = newObj.AddComponent<ObjGrabbable>();
+            syncScript.entityId = data.id;
+
+            grab.selectEntered.AddListener((args) => {
+                syncScript.OnGrabStart();
+                Debug.Log($"[CreateProgObj] {data.id} è¢«æŠ“å–");
+            });
+
+            grab.selectExited.AddListener((args) => {
+                syncScript.OnGrabEnd();
+                Debug.Log($"[CreateProgObj] {data.id} è¢«æ”¾é–‹");
+            });
+
+            Debug.Log($"[CreateProgObj] ç‰©ä»¶ {data.id} ç”Ÿæˆå®Œæˆ (Physics: {usePhysics})");
         }
         else
         {
-            Debug.LogError($"[CreateProgObj] ¤U¸ü¥¢±Ñ: {data.gltf.url}");
+            Debug.LogError($"[CreateProgObj] ä¸‹è¼‰å¤±æ•—: {data.gltf.url}");
         }
     }
 }

@@ -131,11 +131,12 @@ GameObject:
   - component: {fileID: 443530705}
   - component: {fileID: 443530704}
   - component: {fileID: 443530703}
-  - component: {fileID: 443530702}
   - component: {fileID: 443530701}
   - component: {fileID: 443530700}
+  - component: {fileID: 443530707}
+  - component: {fileID: 443530706}
   m_Layer: 0
-  m_Name: ModelManager
+  m_Name: ModelManager_U
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -180,18 +181,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec91a59a08cf8484ca46c84926a93fa5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UpdateState
---- !u!114 &443530702
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 443530697}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dfcdffda29bfc2b44b350bb6a1dc388f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CreateProgObj
 --- !u!114 &443530703
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -228,6 +217,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2dd8bb83bcf1cda40b3d135ab8b96291, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EntityManager
+--- !u!114 &443530706
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfcdffda29bfc2b44b350bb6a1dc388f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreateProgObj
+  usePhysics: 0
+--- !u!114 &443530707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443530697}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79eb39b100715fa4bb2d93013374197c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NewMonoBehaviourScript
 --- !u!1 &816570066
 GameObject:
   m_ObjectHideFlags: 0
@@ -609,7 +623,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1566580975}
   m_Layer: 0
-  m_Name: SyncManager
+  m_Name: SyncManager_U
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -702,6 +716,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1952391077}
+  - component: {fileID: 1952391079}
   - component: {fileID: 1952391078}
   m_Layer: 0
   m_Name: PlayerSync
@@ -726,6 +741,22 @@ Transform:
   m_Father: {fileID: 1566580975}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1952391078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1952391076}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1dfdb8569bc4f84882bc54e3a00dcbe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OldPlayerSync
+  head: {fileID: 990448264}
+  leftHand: {fileID: 1760616701}
+  rightHand: {fileID: 1818977143}
+  syncRate: 0.1
+--- !u!114 &1952391079
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
