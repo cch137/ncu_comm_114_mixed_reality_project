@@ -1,34 +1,34 @@
 using UnityEngine;
-using UnityEngine.InputSystem; // 1. ¤Ş¥Î·sª© Namespace
+using UnityEngine.InputSystem; // 1. å¼•ç”¨æ–°ç‰ˆ Namespace
 
 public class VRSimulator : MonoBehaviour
 {
-    [Header("¸j©w§Aªº VR ª«¥ó")]
+    [Header("ç¶å®šä½ çš„ VR ç‰©ä»¶")]
     public Transform head;
     public Transform leftHand;
     public Transform rightHand;
 
-    [Header("²¾°Ê³]©w")]
+    [Header("ç§»å‹•è¨­å®š")]
     public float moveSpeed = 3.0f;
 
-    // ·sª© Input System ªº Mouse Delta ¼Æ­È³q±`¤ñ¸û¤j (Pixel based)¡A©Ò¥HÆF±Ó«×­n³]¤p¤@ÂI
+    // æ–°ç‰ˆ Input System çš„ Mouse Delta æ•¸å€¼é€šå¸¸æ¯”è¼ƒå¤§ (Pixel based)ï¼Œæ‰€ä»¥éˆæ•åº¦è¦è¨­å°ä¸€é»
     public float lookSpeed = 0.1f;
     public float grabDistance = 5.0f;
 
-    // Åı¤â«O«ù¦bÃèÀY«e¤èªº©T©w¦ì¸m
+    // è®“æ‰‹ä¿æŒåœ¨é¡é ­å‰æ–¹çš„å›ºå®šä½ç½®
     public Vector3 leftHandOffset = new Vector3(-0.3f, -0.2f, 0.5f);
     public Vector3 rightHandOffset = new Vector3(0.3f, -0.2f, 0.5f);
 
     private float rotationX = 0;
     private float rotationY = 0;
 
-    // °O¿ı¥Ø«e§ì¨ìªºª«¥ó
+    // è¨˜éŒ„ç›®å‰æŠ“åˆ°çš„ç‰©ä»¶
     private ObjGrabbable grabbedObjLeft;
     private ObjGrabbable grabbedObjRight;
 
     void Start()
     {
-        // Âê©w·Æ¹«´å¼Ğ¡A¤è«K¹³ FPS ¤@¼Ë¾Ş§@
+        // é–å®šæ»‘é¼ æ¸¸æ¨™ï¼Œæ–¹ä¾¿åƒ FPS ä¸€æ¨£æ“ä½œ
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
@@ -37,10 +37,10 @@ public class VRSimulator : MonoBehaviour
 
     void Update()
     {
-        // ¨¾§b¡G½T»{Áä½L·Æ¹«¦s¦b
+        // é˜²å‘†ï¼šç¢ºèªéµç›¤æ»‘é¼ å­˜åœ¨
         if (Keyboard.current == null || Mouse.current == null) return;
 
-        // «ö¤U ESC ¸ÑÂê·Æ¹«
+        // æŒ‰ä¸‹ ESC è§£é–æ»‘é¼ 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             Cursor.lockState = CursorLockMode.None;
@@ -52,13 +52,13 @@ public class VRSimulator : MonoBehaviour
         HandleInteraction();
     }
 
-    // 1. ¼ÒÀÀÀY²¯²¾°Ê (FPS ¼Ò¦¡) - §ï¥Î Input System
+    // 1. æ¨¡æ“¬é ­ç›”ç§»å‹• (FPS æ¨¡å¼) - æ”¹ç”¨ Input System
     void HandleHeadMovement()
     {
         if (head == null) return;
 
-        // --- ·Æ¹«±ÛÂà ---
-        // Åª¨ú·Æ¹«²¾°Ê¶q (Delta)
+        // --- æ»‘é¼ æ—‹è½‰ ---
+        // è®€å–æ»‘é¼ ç§»å‹•é‡ (Delta)
         Vector2 mouseDelta = Mouse.current.delta.ReadValue();
 
         rotationX += -mouseDelta.y * lookSpeed;
@@ -67,7 +67,7 @@ public class VRSimulator : MonoBehaviour
 
         head.localRotation = Quaternion.Euler(rotationX, rotationY, 0);
 
-        // --- Áä½L²¾°Ê (WASD) ---
+        // --- éµç›¤ç§»å‹• (WASD) ---
         Vector3 moveDir = Vector3.zero;
 
         if (Keyboard.current.wKey.isPressed) moveDir.z += 1;
@@ -75,15 +75,15 @@ public class VRSimulator : MonoBehaviour
         if (Keyboard.current.aKey.isPressed) moveDir.x -= 1;
         if (Keyboard.current.dKey.isPressed) moveDir.x += 1;
 
-        // Q/E ¤W¤U²¾°Ê (¼ÒÀÀÃÛ¤U¯¸°_)
+        // Q/E ä¸Šä¸‹ç§»å‹• (æ¨¡æ“¬è¹²ä¸‹ç«™èµ·)
         if (Keyboard.current.qKey.isPressed) moveDir.y -= 1;
         if (Keyboard.current.eKey.isPressed) moveDir.y += 1;
 
-        // ¬I¥[²¾°Ê
+        // æ–½åŠ ç§»å‹•
         head.Translate(moveDir.normalized * moveSpeed * Time.deltaTime);
     }
 
-    // 2. ¼ÒÀÀ¤â³¡¦ì¸m (ÅŞ¿è¤£ÅÜ)
+    // 2. æ¨¡æ“¬æ‰‹éƒ¨ä½ç½® (é‚è¼¯ä¸è®Š)
     void HandleHandFollow()
     {
         if (head == null) return;
@@ -101,14 +101,14 @@ public class VRSimulator : MonoBehaviour
         }
     }
 
-    // 3. ¼ÒÀÀ§ì¨ú - §ï¥Î Input System
+    // 3. æ¨¡æ“¬æŠ“å– - æ”¹ç”¨ Input System
     void HandleInteraction()
     {
-        // ¥ªÁä = ¥ª¤â§ì/©ñ
+        // å·¦éµ = å·¦æ‰‹æŠ“/æ”¾
         if (Mouse.current.leftButton.wasPressedThisFrame) TryGrab(leftHand, ref grabbedObjLeft);
         if (Mouse.current.leftButton.wasReleasedThisFrame) TryRelease(ref grabbedObjLeft);
 
-        // ¥kÁä = ¥k¤â§ì/©ñ
+        // å³éµ = å³æ‰‹æŠ“/æ”¾
         if (Mouse.current.rightButton.wasPressedThisFrame) TryGrab(rightHand, ref grabbedObjRight);
         if (Mouse.current.rightButton.wasReleasedThisFrame) TryRelease(ref grabbedObjRight);
     }
@@ -118,7 +118,7 @@ public class VRSimulator : MonoBehaviour
         if (currentGrabbed != null) return;
 
         Ray ray = new Ray(head.position, head.forward);
-        // ³o¸Ì LayerMask ³]¬° Default¡A¦pªG§A¦³¯S©w Layer ¥i¦Û¦æ­×§ï
+        // é€™è£¡ LayerMask è¨­ç‚º Defaultï¼Œå¦‚æœä½ æœ‰ç‰¹å®š Layer å¯è‡ªè¡Œä¿®æ”¹
         if (Physics.Raycast(ray, out RaycastHit hit, grabDistance))
         {
             ObjGrabbable grabbable = hit.collider.GetComponentInParent<ObjGrabbable>();
@@ -128,11 +128,11 @@ public class VRSimulator : MonoBehaviour
                 currentGrabbed = grabbable;
                 currentGrabbed.OnGrabStart();
 
-                // µøÄ±¤WÂH¦b¤â¤W
+                // è¦–è¦ºä¸Šé»åœ¨æ‰‹ä¸Š
                 currentGrabbed.transform.SetParent(hand);
                 currentGrabbed.transform.localPosition = Vector3.zero;
 
-                Debug.Log($"[¼ÒÀÀ¾¹] §ì°_¤F {grabbable.name}");
+                Debug.Log($"[æ¨¡æ“¬å™¨] æŠ“èµ·äº† {grabbable.name}");
             }
         }
     }
@@ -144,7 +144,7 @@ public class VRSimulator : MonoBehaviour
             currentGrabbed.OnGrabEnd();
             currentGrabbed.transform.SetParent(null);
 
-            Debug.Log($"[¼ÒÀÀ¾¹] ©ñ¶}¤F {currentGrabbed.name}");
+            Debug.Log($"[æ¨¡æ“¬å™¨] æ”¾é–‹äº† {currentGrabbed.name}");
             currentGrabbed = null;
         }
     }

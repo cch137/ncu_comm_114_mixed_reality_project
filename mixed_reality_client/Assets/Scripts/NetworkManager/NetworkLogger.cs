@@ -1,18 +1,18 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
 using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
-// 1. §ï¦¨Ä~©Ó MonoBehaviour¡A³o¼Ë´N¥i¥H±¾¦bª«¥ó¤W¤F
+// 1. æ”¹æˆç¹¼æ‰¿ MonoBehaviourï¼Œé€™æ¨£å°±å¯ä»¥æ›åœ¨ç‰©ä»¶ä¸Šäº†
 public class NetworkLogger : MonoBehaviour
 {
     [Header("Debug Settings")]
-    [Tooltip("¬O§_Åã¥Ü±µ¦¬¨ìªº¸Ô²Ó JSON ¸ê®Æ")]
-    public bool ShowReceiveDetails = false; // ÅÜ¦¨ Inspector ¥i¨£ªº¤Ä¿ï®Ø
+    [Tooltip("æ˜¯å¦é¡¯ç¤ºæ¥æ”¶åˆ°çš„è©³ç´° JSON è³‡æ–™")]
+    public bool ShowReceiveDetails = false; // è®Šæˆ Inspector å¯è¦‹çš„å‹¾é¸æ¡†
 
-    [Tooltip("¬O§_Åã¥Üµo°e¥X¥hªº¸Ô²Ó JSON ¸ê®Æ")]
-    public bool ShowSendDetails = false;    // ÅÜ¦¨ Inspector ¥i¨£ªº¤Ä¿ï®Ø
+    [Tooltip("æ˜¯å¦é¡¯ç¤ºç™¼é€å‡ºå»çš„è©³ç´° JSON è³‡æ–™")]
+    public bool ShowSendDetails = false;    // è®Šæˆ Inspector å¯è¦‹çš„å‹¾é¸æ¡†
 
-    // --- ¤º³¡ÅÜ¼Æ ---
+    // --- å…§éƒ¨è®Šæ•¸ ---
     public const int LogFrequency = 100;
     private Dictionary<string, int> _counters = new Dictionary<string, int>();
 
@@ -23,7 +23,7 @@ public class NetworkLogger : MonoBehaviour
 
     public void LogSend(string eventName, object data)
     {
-        // ... (ÅŞ¿è»P¤§«e§¹¥ş¤@¼Ë¡A¤£¥ÎÅÜ) ...
+        // ... (é‚è¼¯èˆ‡ä¹‹å‰å®Œå…¨ä¸€æ¨£ï¼Œä¸ç”¨è®Š) ...
         if (IsHighFrequency(eventName))
         {
             if (!_counters.ContainsKey(eventName)) _counters[eventName] = 0;
@@ -31,7 +31,7 @@ public class NetworkLogger : MonoBehaviour
 
             if (_counters[eventName] < LogFrequency) return;
 
-            Debug.Log($"[WS Send] Type: {eventName} (¤w²¤¹L {LogFrequency - 1} µ§°ªÀW¸ê®Æ)");
+            Debug.Log($"[WS Send] Type: {eventName} (å·²ç•¥é {LogFrequency - 1} ç­†é«˜é »è³‡æ–™)");
             _counters[eventName] = 0;
         }
         else
@@ -48,7 +48,7 @@ public class NetworkLogger : MonoBehaviour
 
     public void LogReceive(string messageType, string fullJsonData)
     {
-        // ... (ÅŞ¿è»P¤§«e§¹¥ş¤@¼Ë) ...
+        // ... (é‚è¼¯èˆ‡ä¹‹å‰å®Œå…¨ä¸€æ¨£) ...
         Debug.Log($"[WS Recv] Type: {messageType}");
 
         if (ShowReceiveDetails)

@@ -2,11 +2,11 @@ using System;
 using UnityEngine;
 
 // ==========================================
-//  PART 1: ®Ö¤ßºô¸ô¨ó©w (Protocol Wrappers)
+//  PART 1: æ ¸å¿ƒç¶²è·¯å”å®š (Protocol Wrappers)
 // ==========================================
 
 /// <summary>
-/// 1. °òÂ¦¥~´ß¡G¥u¬°¤F°½¬İ "type" ¬O¤°»ò¡A¥Î©ó²Ä¤@¶¥¬q¸ÑªR
+/// 1. åŸºç¤å¤–æ®¼ï¼šåªç‚ºäº†å·çœ‹ "type" æ˜¯ä»€éº¼ï¼Œç”¨æ–¼ç¬¬ä¸€éšæ®µè§£æ
 /// </summary>
 [Serializable]
 public class BaseMessage
@@ -15,7 +15,7 @@ public class BaseMessage
 }
 
 /// <summary>
-/// 2. ¸U¥Î¥~´ß¡G½T»{ type «á¡A¥Î³o­Ó§â payload Âà¦¨¥¿½TªºÃş§O
+/// 2. è¬ç”¨å¤–æ®¼ï¼šç¢ºèª type å¾Œï¼Œç”¨é€™å€‹æŠŠ payload è½‰æˆæ­£ç¢ºçš„é¡åˆ¥
 /// </summary>
 [Serializable]
 public class MessageWrapper<T>
@@ -25,11 +25,11 @@ public class MessageWrapper<T>
 }
 
 // ==========================================
-//  PART 2: ³q¥Î¸ê®Æµ²ºc (Common Data)
+//  PART 2: é€šç”¨è³‡æ–™çµæ§‹ (Common Data)
 // ==========================================
 
 /// <summary>
-/// °òÂ¦¦ì¸m»P±ÛÂà¸ê®Æ¡A³Q¦h­Ó Event ¤Ş¥Î
+/// åŸºç¤ä½ç½®èˆ‡æ—‹è½‰è³‡æ–™ï¼Œè¢«å¤šå€‹ Event å¼•ç”¨
 /// </summary>
 [Serializable]
 public class PoseData
@@ -46,7 +46,7 @@ public class GLTFInfo
 }
 
 /// <summary>
-/// ¥Î©ó PlayerSync ªº°}¦C¯Á¤Ş»²§U
+/// ç”¨æ–¼ PlayerSync çš„é™£åˆ—ç´¢å¼•è¼”åŠ©
 /// </summary>
 public static class BodyIndex
 {
@@ -56,11 +56,11 @@ public static class BodyIndex
 }
 
 // ==========================================
-//  PART 3: ¹êÅé¬ÛÃö Payload (Entities)
+//  PART 3: å¯¦é«”ç›¸é—œ Payload (Entities)
 // ==========================================
 
 /// <summary>
-/// ±M¥Î©ó CreateEntityProgObj (»İ­n GLTF ¸ê°T)
+/// å°ˆç”¨æ–¼ CreateEntityProgObj (éœ€è¦ GLTF è³‡è¨Š)
 /// </summary>
 [Serializable]
 public class CreateProgObjData
@@ -71,7 +71,7 @@ public class CreateProgObjData
 }
 
 /// <summary>
-/// ¥Î©ó CreateEntityGeomObj, CreateEntityAnchor »P UpdateEntity
+/// ç”¨æ–¼ CreateEntityGeomObj, CreateEntityAnchor èˆ‡ UpdateEntity
 /// </summary>
 [Serializable]
 public class EntityData
@@ -81,7 +81,7 @@ public class EntityData
 }
 
 /// <summary>
-/// ¥Î©ó ClaimEntity (·m) »P ReleaseEntity (©ñ)
+/// ç”¨æ–¼ ClaimEntity (æ¶) èˆ‡ ReleaseEntity (æ”¾)
 /// </summary>
 [Serializable]
 public class EntityControlData
@@ -96,7 +96,7 @@ public class DeleteEntityData
 }
 
 // ==========================================
-//  PART 4: ©Ğ¶¡»P¨t²Î Payload (Room & System)
+//  PART 4: æˆ¿é–“èˆ‡ç³»çµ± Payload (Room & System)
 // ==========================================
 
 [Serializable]

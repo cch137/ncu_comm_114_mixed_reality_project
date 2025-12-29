@@ -2,24 +2,24 @@ using UnityEngine;
 
 public class OldPlayerSync : MonoBehaviour
 {
-    [Header("°lÂÜª«¥ó (½Ğ©ì¦² VR Camera ©M Controllers)")]
+    [Header("è¿½è¹¤ç‰©ä»¶ (è«‹æ‹–æ›³ VR Camera å’Œ Controllers)")]
     public Transform head;
     public Transform leftHand;
     public Transform rightHand;
 
-    [Header("¦P¨B³]©w")]
-    [Tooltip("µo°eÀW²v (¬í)¡A«ØÄ³ 0.05 ~ 0.1")]
+    [Header("åŒæ­¥è¨­å®š")]
+    [Tooltip("ç™¼é€é »ç‡ (ç§’)ï¼Œå»ºè­° 0.05 ~ 0.1")]
     public float syncRate = 0.1f;
     private float timer;
 
-    // ©w¸q API ³W©wªº°}¦C¯Á¤Ş (Internal Constants)
+    // å®šç¾© API è¦å®šçš„é™£åˆ—ç´¢å¼• (Internal Constants)
     private const int IDX_HEAD = 0;
     private const int IDX_L_HAND = 1;
     private const int IDX_R_HAND = 2;
 
     void Update()
     {
-        // ¥u¦³¦b³s½u«Ø¥ß«á¤~¶}©l¦P¨B
+        // åªæœ‰åœ¨é€£ç·šå»ºç«‹å¾Œæ‰é–‹å§‹åŒæ­¥
         if (NetworkManager.Instance == null) return;
 
         if (RoomManager.Instance == null || !RoomManager.Instance.IsInRoom) return;
@@ -34,21 +34,21 @@ public class OldPlayerSync : MonoBehaviour
 
     void SendPlayerState()
     {
-        // ±¡ªp A: ÀY»PÂù¤â³£¦b -> ¨Ï¥Î·sª© "Poses" °}¦C (ºñ¦â°Ï°ì³W®æ)
+        // æƒ…æ³ A: é ­èˆ‡é›™æ‰‹éƒ½åœ¨ -> ä½¿ç”¨æ–°ç‰ˆ "Poses" é™£åˆ— (ç¶ è‰²å€åŸŸè¦æ ¼)
         if (head != null && leftHand != null && rightHand != null)
         {
-            // «Ø¥ßªø«×¬° 3 ªº°}¦C
+            // å»ºç«‹é•·åº¦ç‚º 3 çš„é™£åˆ—
             PoseData[] allPoses = new PoseData[3];
 
-            // ¨Ì§Ç¶ñ¤J¡G0:ÀY, 1:¥ª¤â, 2:¥k¤â
+            // ä¾åºå¡«å…¥ï¼š0:é ­, 1:å·¦æ‰‹, 2:å³æ‰‹
             allPoses[IDX_HEAD] = CreatePose(head);
             allPoses[IDX_L_HAND] = CreatePose(leftHand);
             allPoses[IDX_R_HAND] = CreatePose(rightHand);
 
-            // µo°e¨Æ¥ó
+            // ç™¼é€äº‹ä»¶
             NetworkManager.Instance.Send<PoseData[]>("Poses", allPoses);
         }
-        // ±¡ªp B: ¥u¦³ÀY (¨Ò¦p 3DoF ³]³Æ) -> ­°¯Å¨Ï¥Î "HeadPose"
+        // æƒ…æ³ B: åªæœ‰é ­ (ä¾‹å¦‚ 3DoF è¨­å‚™) -> é™ç´šä½¿ç”¨ "HeadPose"
         else if (head != null)
         {
             PoseData headData = CreatePose(head);
@@ -56,7 +56,7 @@ public class OldPlayerSync : MonoBehaviour
         }
     }
 
-    // »²§U¤èªk¡G±N Unity Transform Âà´«¬° Server »İ­nªº PoseData
+    // è¼”åŠ©æ–¹æ³•ï¼šå°‡ Unity Transform è½‰æ›ç‚º Server éœ€è¦çš„ PoseData
     PoseData CreatePose(Transform target)
     {
         return new PoseData

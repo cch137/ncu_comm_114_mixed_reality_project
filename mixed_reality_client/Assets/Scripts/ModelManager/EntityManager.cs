@@ -5,7 +5,7 @@ public class EntityManager : MonoBehaviour
 {
     public static EntityManager Instance;
 
-    // Àx¦s©Ò¦³³s½uª«¥óªº¦r¨å¡GKey = Entity ID, Value = GameObject
+    // å„²å­˜æ‰€æœ‰é€£ç·šç‰©ä»¶çš„å­—å…¸ï¼šKey = Entity ID, Value = GameObject
     private Dictionary<string, GameObject> spawnedEntities = new Dictionary<string, GameObject>();
 
     private void Awake()
@@ -15,24 +15,24 @@ public class EntityManager : MonoBehaviour
     }
 
     /// <summary>
-    /// µù¥U¤@­Ó·sª«¥ó¨ì¦r¨å¤¤
+    /// è¨»å†Šä¸€å€‹æ–°ç‰©ä»¶åˆ°å­—å…¸ä¸­
     /// </summary>
     public void RegisterEntity(string id, GameObject obj)
     {
         if (spawnedEntities.ContainsKey(id))
         {
-            Debug.LogWarning($"[EntityManager] ID {id} ¤w¦s¦b¡A¥¿¦b¾P·´ÂÂª«¥ó¨Ã´À´«...");
+            Debug.LogWarning($"[EntityManager] ID {id} å·²å­˜åœ¨ï¼Œæ­£åœ¨éŠ·æ¯€èˆŠç‰©ä»¶ä¸¦æ›¿æ›...");
             Destroy(spawnedEntities[id]);
             spawnedEntities.Remove(id);
         }
 
-        // ³]©wª«¥ó¦WºÙ¤è«K Debug
+        // è¨­å®šç‰©ä»¶åç¨±æ–¹ä¾¿ Debug
         obj.name = $"{obj.name}_{id}";
         spawnedEntities.Add(id, obj);
     }
 
     /// <summary>
-    /// ¨ú±oª«¥ó
+    /// å–å¾—ç‰©ä»¶
     /// </summary>
     public GameObject GetEntity(string id)
     {
@@ -40,11 +40,11 @@ public class EntityManager : MonoBehaviour
         {
             return obj;
         }
-        return null; // §ä¤£¨ì
+        return null; // æ‰¾ä¸åˆ°
     }
 
     /// <summary>
-    /// ²¾°£¨Ã¾P·´ª«¥ó
+    /// ç§»é™¤ä¸¦éŠ·æ¯€ç‰©ä»¶
     /// </summary>
     public void RemoveEntity(string id)
     {
@@ -52,16 +52,16 @@ public class EntityManager : MonoBehaviour
         {
             Destroy(obj);
             spawnedEntities.Remove(id);
-            Debug.Log($"[EntityManager] ¤w²¾°£ª«¥ó: {id}");
+            Debug.Log($"[EntityManager] å·²ç§»é™¤ç‰©ä»¶: {id}");
         }
         else
         {
-            Debug.LogWarning($"[EntityManager] §ä¤£¨ì­n§R°£ªº ID: {id}");
+            Debug.LogWarning($"[EntityManager] æ‰¾ä¸åˆ°è¦åˆªé™¤çš„ ID: {id}");
         }
     }
 
     // ---------------------------------------------------------
-    //  ½Ğ±N³o¤@¬q¥[¦b³o¸Ì (RemoveEntity ¤U¤è)
+    //  è«‹å°‡é€™ä¸€æ®µåŠ åœ¨é€™è£¡ (RemoveEntity ä¸‹æ–¹)
     // ---------------------------------------------------------
     public void ClearAll()
     {
@@ -70,12 +70,12 @@ public class EntityManager : MonoBehaviour
             if (obj != null) Destroy(obj);
         }
         spawnedEntities.Clear();
-        Debug.Log("[EntityManager] ¤w²MªÅ©Ò¦³ºô¸ôª«¥ó");
+        Debug.Log("[EntityManager] å·²æ¸…ç©ºæ‰€æœ‰ç¶²è·¯ç‰©ä»¶");
     }
     // ---------------------------------------------------------
 
     /// <summary>
-    /// ¤u¨ã¡G±N PoseData Âà¬° Unity ªº Vector3/Quaternion
+    /// å·¥å…·ï¼šå°‡ PoseData è½‰ç‚º Unity çš„ Vector3/Quaternion
     /// </summary>
     public void ApplyPose(Transform target, PoseData pose)
     {

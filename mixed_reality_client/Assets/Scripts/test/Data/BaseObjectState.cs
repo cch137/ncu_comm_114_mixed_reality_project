@@ -1,4 +1,4 @@
-using UnityEngine; // ¤Ş¥Î Unity ¼Æ¾Ç®w
+ï»¿using UnityEngine; // å¼•ç”¨ Unity æ•¸å­¸åº«
 using System;
 
 [Serializable]
@@ -6,15 +6,15 @@ public class BaseObjectState
 {
     public string Uuid { get; private set; }
 
-    // ¦ì¸m¡Gx, y, z
+    // ä½ç½®ï¼šx, y, z
     public Vector3 Position;
 
-    // ±ÛÂà¡G§ï¥Î Quaternion (x, y, z, w)
+    // æ—‹è½‰ï¼šæ”¹ç”¨ Quaternion (x, y, z, w)
     public Quaternion Rotation;
 
     public long LastUpdateTime;
 
-    // «Øºc¤l¡G¶Ç¤J Quaternion
+    // å»ºæ§‹å­ï¼šå‚³å…¥ Quaternion
     public BaseObjectState(string uuid, Vector3 pos, Quaternion rot)
     {
         this.Uuid = uuid;
@@ -23,7 +23,7 @@ public class BaseObjectState
         this.LastUpdateTime = DateTime.UtcNow.Ticks;
     }
 
-    // §ó·s¤èªk¤]¦P¨B­×§ï
+    // æ›´æ–°æ–¹æ³•ä¹ŸåŒæ­¥ä¿®æ”¹
     public virtual void UpdateState(Vector3 newPos, Quaternion newRot)
     {
         this.Position = newPos;

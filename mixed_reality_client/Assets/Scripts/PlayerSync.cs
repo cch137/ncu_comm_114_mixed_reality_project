@@ -1,16 +1,16 @@
 using UnityEngine;
-// ²¾°£ÂÂªº XR ¤Ş¥Î¡AÁ×§K²V²c
+// ç§»é™¤èˆŠçš„ XR å¼•ç”¨ï¼Œé¿å…æ··æ·†
 // using UnityEngine.XR.Interaction.Toolkit; 
 
 public class PlayerSync : MonoBehaviour
 {
-    [Header("°lÂÜª«¥ó (¨S©ì¦²·|¦Û°Ê§ì¨ú)")]
+    [Header("è¿½è¹¤ç‰©ä»¶ (æ²’æ‹–æ›³æœƒè‡ªå‹•æŠ“å–)")]
     public Transform head;
     public Transform leftHand;
     public Transform rightHand;
 
-    [Header("¦P¨B³]©w")]
-    [Tooltip("µo°eÀW²v (¬í)¡A«ØÄ³ 0.05 ~ 0.1")]
+    [Header("åŒæ­¥è¨­å®š")]
+    [Tooltip("ç™¼é€é »ç‡ (ç§’)ï¼Œå»ºè­° 0.05 ~ 0.1")]
     public float syncRate = 0.1f;
     private float timer;
 
@@ -25,7 +25,7 @@ public class PlayerSync : MonoBehaviour
 
     void Update()
     {
-        // ©w´ÁÀË¬d (¨C 3 ¬í¤@¦¸)¡A¨¾¤î¤â§â«á¨Ó¤~¶}¾÷¨S§ì¨ì
+        // å®šæœŸæª¢æŸ¥ (æ¯ 3 ç§’ä¸€æ¬¡)ï¼Œé˜²æ­¢æ‰‹æŠŠå¾Œä¾†æ‰é–‹æ©Ÿæ²’æŠ“åˆ°
         if (leftHand == null || rightHand == null)
         {
             if (Time.frameCount % 180 == 0) AutoFindXRDevices();
@@ -42,60 +42,60 @@ public class PlayerSync : MonoBehaviour
         }
     }
 
-    // ¡¹¡¹¡¹ ­×¥¿«áªº¦Û°Ê§ì¨úÅŞ¿è (°w¹ï XRIT 3.x) ¡¹¡¹¡¹
+    // â˜…â˜…â˜… ä¿®æ­£å¾Œçš„è‡ªå‹•æŠ“å–é‚è¼¯ (é‡å° XRIT 3.x) â˜…â˜…â˜…
     void AutoFindXRDevices()
     {
-        // 1. ¦Û°Ê§ìÀY³¡ (Main Camera)
+        // 1. è‡ªå‹•æŠ“é ­éƒ¨ (Main Camera)
         if (head == null)
         {
             if (Camera.main != null)
             {
                 head = Camera.main.transform;
-                // Debug.Log("[PlayerSync] ¦Û°Ê¸j©w Head -> MainCamera");
+                // Debug.Log("[PlayerSync] è‡ªå‹•ç¶å®š Head -> MainCamera");
             }
         }
 
-        // 2. ¦Û°Ê§ìÂù¤â (³z¹L¦WºÙ¼Ò½k·j´M)
-        // ³o¬O³ÌÃ­©wªº¤èªk¡A¤£¨Ì¿à XRIT ª©¥»
+        // 2. è‡ªå‹•æŠ“é›™æ‰‹ (é€éåç¨±æ¨¡ç³Šæœå°‹)
+        // é€™æ˜¯æœ€ç©©å®šçš„æ–¹æ³•ï¼Œä¸ä¾è³´ XRIT ç‰ˆæœ¬
         if (leftHand == null || rightHand == null)
         {
-            // ·j´M³õ´º¤¤©Ò¦³§t¦³ "Controller" ¦r²´ªºª«¥ó
-            // ¬°¤F®Ä¯à¡A§Ú­Ìª½±µ§ä³õ´º¤¤ªº GameObject¡A³o¤ñ FindObjectsByType §Ö¥B³q¥Î
+            // æœå°‹å ´æ™¯ä¸­æ‰€æœ‰å«æœ‰ "Controller" å­—çœ¼çš„ç‰©ä»¶
+            // ç‚ºäº†æ•ˆèƒ½ï¼Œæˆ‘å€‘ç›´æ¥æ‰¾å ´æ™¯ä¸­çš„ GameObjectï¼Œé€™æ¯” FindObjectsByType å¿«ä¸”é€šç”¨
 
-            // ³o¸Ì¨Ï¥Î Find ·f°t±`¨£©R¦W³W«h (Unity Default, Meta Quest, etc.)
+            // é€™è£¡ä½¿ç”¨ Find æ­é…å¸¸è¦‹å‘½åè¦å‰‡ (Unity Default, Meta Quest, etc.)
             if (leftHand == null)
             {
                 leftHand = FindHandObject("Left");
-                if (leftHand != null) Debug.Log("[PlayerSync] ¦Û°Ê¸j©w Left Hand: " + leftHand.name);
+                if (leftHand != null) Debug.Log("[PlayerSync] è‡ªå‹•ç¶å®š Left Hand: " + leftHand.name);
             }
 
             if (rightHand == null)
             {
                 rightHand = FindHandObject("Right");
-                if (rightHand != null) Debug.Log("[PlayerSync] ¦Û°Ê¸j©w Right Hand: " + rightHand.name);
+                if (rightHand != null) Debug.Log("[PlayerSync] è‡ªå‹•ç¶å®š Right Hand: " + rightHand.name);
             }
         }
     }
 
-    // »²§U¤èªk¡G´M§ä§t¦³¯S©wÃöÁä¦rªº±±¨î¾¹ª«¥ó
+    // è¼”åŠ©æ–¹æ³•ï¼šå°‹æ‰¾å«æœ‰ç‰¹å®šé—œéµå­—çš„æ§åˆ¶å™¨ç‰©ä»¶
     Transform FindHandObject(string sideKeyword)
     {
-        // µ¦²¤ A: ª½±µ·j´M±`¨£¦WºÙ (³Ì·Ç½T)
-        GameObject obj = GameObject.Find($"{sideKeyword} Controller"); // Unity ¹w³]
-        if (obj == null) obj = GameObject.Find($"{sideKeyword}Hand Controller"); // ±`¨£ÅÜÅé
-        if (obj == null) obj = GameObject.Find($"{sideKeyword}Hand"); // Â²¼g
+        // ç­–ç•¥ A: ç›´æ¥æœå°‹å¸¸è¦‹åç¨± (æœ€æº–ç¢º)
+        GameObject obj = GameObject.Find($"{sideKeyword} Controller"); // Unity é è¨­
+        if (obj == null) obj = GameObject.Find($"{sideKeyword}Hand Controller"); // å¸¸è¦‹è®Šé«”
+        if (obj == null) obj = GameObject.Find($"{sideKeyword}Hand"); // ç°¡å¯«
 
         if (obj != null) return obj.transform;
 
-        // µ¦²¤ B: ¦pªG¤W­±³£§ä¤£¨ì¡A·j´M©Ò¦³ª«¥ó (¸ûºC¡A¦ı¯à§ì¨ì©Ç²§©R¦W)
-        // ¥u¦³¦b¯uªº§ä¤£¨ì®É¤~°õ¦æ³o­Ó
+        // ç­–ç•¥ B: å¦‚æœä¸Šé¢éƒ½æ‰¾ä¸åˆ°ï¼Œæœå°‹æ‰€æœ‰ç‰©ä»¶ (è¼ƒæ…¢ï¼Œä½†èƒ½æŠ“åˆ°æ€ªç•°å‘½å)
+        // åªæœ‰åœ¨çœŸçš„æ‰¾ä¸åˆ°æ™‚æ‰åŸ·è¡Œé€™å€‹
         var allControllers = GameObject.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
         foreach (var script in allControllers)
         {
-            // ÀË¬d¬O§_¬O XR ±±¨î¾¹¬ÛÃö¸}¥» (ActionBasedController ©Î¨ä¥L)
+            // æª¢æŸ¥æ˜¯å¦æ˜¯ XR æ§åˆ¶å™¨ç›¸é—œè…³æœ¬ (ActionBasedController æˆ–å…¶ä»–)
             if (script.GetType().Name.Contains("Controller"))
             {
-                // ÀË¬dª«¥ó¦WºÙ¬O§_¥]§t "Left" ©Î "Right" (©¿²¤¤j¤p¼g)
+                // æª¢æŸ¥ç‰©ä»¶åç¨±æ˜¯å¦åŒ…å« "Left" æˆ– "Right" (å¿½ç•¥å¤§å°å¯«)
                 if (script.gameObject.name.IndexOf(sideKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     return script.transform;

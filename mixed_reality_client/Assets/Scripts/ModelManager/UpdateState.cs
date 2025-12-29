@@ -20,17 +20,17 @@ public class UpdateState : MonoBehaviour
 
         if (target != null)
         {
-            // ¡¹¡¹¡¹ ÃöÁä­×¥¿ ¡¹¡¹¡¹
-            // ÀË¬d¸Óª«¥ó¬O§_¦³ NetworkGrabbable ¤¸¥ó¡A¥B¬O§_¥¿¦b³Q§Ú­Ì§ì¨ú
+            // â˜…â˜…â˜… é—œéµä¿®æ­£ â˜…â˜…â˜…
+            // æª¢æŸ¥è©²ç‰©ä»¶æ˜¯å¦æœ‰ NetworkGrabbable å…ƒä»¶ï¼Œä¸”æ˜¯å¦æ­£åœ¨è¢«æˆ‘å€‘æŠ“å–
             var grabbable = target.GetComponent<ObjGrabbable>();
 
-            // ¦pªG "¬O§Ú¥¿¦b§ìªº"¡A´N©¿²¤ Server ªº®y¼Ğ§ó·s (Local Prediction)
+            // å¦‚æœ "æ˜¯æˆ‘æ­£åœ¨æŠ“çš„"ï¼Œå°±å¿½ç•¥ Server çš„åº§æ¨™æ›´æ–° (Local Prediction)
             if (grabbable != null && grabbable.IsOwnedByMe)
             {
                 return;
             }
 
-            // §_«h¡A¥¿±`¦P¨B Server ªº¦ì¸m
+            // å¦å‰‡ï¼Œæ­£å¸¸åŒæ­¥ Server çš„ä½ç½®
             EntityManager.Instance.ApplyPose(target.transform, data.pose);
         }
     }

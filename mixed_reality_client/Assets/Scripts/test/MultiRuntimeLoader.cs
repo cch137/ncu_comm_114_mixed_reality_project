@@ -6,36 +6,36 @@
 //{
 //    public static MultiRuntimeLoader Instance;
 
-//    [Header("´ú¸Õ³]©w")]
-//    [Tooltip("¥Í¦¨¥b®|")]
+//    [Header("æ¸¬è©¦è¨­å®š")]
+//    [Tooltip("ç”ŸæˆåŠå¾‘")]
 //    public float spawnRadius = 2.0f;
 
 //    private void Start()
 //    {
 //        if (NetworkManager.Instance != null)
 //        {
-//            // ¥¿½T¼gªk¡G¥u¼g¤èªk¦WºÙ¡A¤£­n¥[¬A¸¹ ()
+//            // æ­£ç¢ºå¯«æ³•ï¼šåªå¯«æ–¹æ³•åç¨±ï¼Œä¸è¦åŠ æ‹¬è™Ÿ ()
 //            NetworkManager.Instance.OnLoadGLTF += OnGLTFReceived;
 //        }
 //    }
 
 //    private void OnGLTFReceived(GLTFData payload)
 //    {
-//        Debug.Log($"[¨Æ¥ó±µ¦¬] ¦¬¨ì¥Í¦¨½Ğ¨D: {payload.url}");
+//        Debug.Log($"[äº‹ä»¶æ¥æ”¶] æ”¶åˆ°ç”Ÿæˆè«‹æ±‚: {payload.url}");
 
-//        // ³o¸Ì¦A¥h©I¥s¥Í¦¨ÅŞ¿è
+//        // é€™è£¡å†å»å‘¼å«ç”Ÿæˆé‚è¼¯
 //        SpawnOneAtRandomPosition(payload.id, payload.name, payload.url);
 //        SendLoadSuccess(payload.id);
 //    }
 
 //    //// ==========================================
-//    //// µ¹ WebSocket ©I¥sªº¤J¤f
+//    //// çµ¦ WebSocket å‘¼å«çš„å…¥å£
 //    //// ==========================================
 //    //public void LoadFromScript(string newId, string newName, string newUrl)
 //    //{
-//    //    Debug.Log($"[¨t²Î«ü¥O] WebSocket ½Ğ¨D¤U¸ü: {newUrl}");
+//    //    Debug.Log($"[ç³»çµ±æŒ‡ä»¤] WebSocket è«‹æ±‚ä¸‹è¼‰: {newUrl}");
 
-//    //    // ª½±µ§â°Ñ¼Æ©¹¤U¶Ç¡A¤£»İ­n¦s¨ì¥ş°ìÅÜ¼Æ
+//    //    // ç›´æ¥æŠŠåƒæ•¸å¾€ä¸‹å‚³ï¼Œä¸éœ€è¦å­˜åˆ°å…¨åŸŸè®Šæ•¸
 //    //    SpawnOneAtRandomPosition(newId, newName, newUrl);
 //    //}
 
@@ -62,7 +62,7 @@
 //            modelObj.transform.position = position;
 //            await gltf.InstantiateMainSceneAsync(modelObj.transform);
 
-//            // ¦Û°Ê¥[ Collider
+//            // è‡ªå‹•åŠ  Collider
 //            var collider = modelObj.AddComponent<BoxCollider>();
 //            Renderer[] renderers = modelObj.GetComponentsInChildren<Renderer>();
 //            if (renderers.Length > 0)
@@ -75,22 +75,22 @@
 //        }
 //        else
 //        {
-//            Debug.LogError($"[MultiRuntimeLoader] ¤U¸ü¥¢±Ñ: {url}");
+//            Debug.LogError($"[MultiRuntimeLoader] ä¸‹è¼‰å¤±æ•—: {url}");
 //        }
 //    }
 
 //    public void SendLoadSuccess(string modelId)
 //    {
-//        // 1. ·Ç³Æ¸ê®Æ
+//        // 1. æº–å‚™è³‡æ–™
 //        GLTFResultData data = new GLTFResultData();
 //        data.id = modelId;
 
-//        // 2. µo°e¡I
-//        // ¼gªk¡GSend<¸ê®ÆÃş§O>("¨Æ¥ó¦WºÙ", ¸ê®Æª«¥ó)
+//        // 2. ç™¼é€ï¼
+//        // å¯«æ³•ï¼šSend<è³‡æ–™é¡åˆ¥>("äº‹ä»¶åç¨±", è³‡æ–™ç‰©ä»¶)
 //        if (NetworkManager.Instance != null)
 //        {
 //            NetworkManager.Instance.Send<GLTFResultData>("LoadGLTFOK", data);
-//            Debug.Log($"¤w³qª¾ Server ¼Ò«¬¸ü¤J§¹¦¨: {data}");
+//            Debug.Log($"å·²é€šçŸ¥ Server æ¨¡å‹è¼‰å…¥å®Œæˆ: {data}");
 //        }
 //    }
 //}

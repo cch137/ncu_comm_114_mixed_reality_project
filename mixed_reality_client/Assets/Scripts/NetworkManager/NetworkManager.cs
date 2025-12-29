@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using NativeWebSocket;
 using System;
 using System.Text;
@@ -7,7 +7,7 @@ using WebSocketState = NativeWebSocket.WebSocketState;
 
 public class NetworkManager : MonoBehaviour
 {
-    [Header("³s½u³]©w")]
+    [Header("é€£ç·šè¨­å®š")]
     public string serverUrl = "wss://40001.cch137.com/mr-realtime";
     public bool autoReconnect = true;
     public static NetworkManager Instance;
@@ -16,12 +16,12 @@ public class NetworkManager : MonoBehaviour
     private bool isQuitting = false;
     private WebSocket websocket;
 
-    // --- ¨Æ¥ó©w¸q ---
+    // --- äº‹ä»¶å®šç¾© ---
     public event Action<string> OnJoinRoomOK;
     public event Action<string> OnLeaveRoomOK;
     public event Action<AudioData> OnAudioReceived;
 
-    // ¹êÅé¬ÛÃö¨Æ¥ó
+    // å¯¦é«”ç›¸é—œäº‹ä»¶
     public event Action<CreateProgObjData> OnCreateProgObj;
     public event Action<EntityData> OnCreateGeomObj;
     public event Action<EntityData> OnCreateAnchor;
@@ -30,7 +30,7 @@ public class NetworkManager : MonoBehaviour
     public event Action OnFlushAudio;
     public event Action<string> OnTranscriptReceived;
 
-    // ¿ù»~³B²z
+    // éŒ¯èª¤è™•ç†
     public event Action<string> OnError;
 
     [Header("Components")]
@@ -65,21 +65,21 @@ public class NetworkManager : MonoBehaviour
 
         websocket.OnOpen += () =>
         {
-            Debug.Log("<color=green>³s½u¤w¶}±Ò¡I</color>");
+            Debug.Log("<color=green>é€£ç·šå·²é–‹å•Ÿï¼</color>");
             if (_logger != null)
             {
                 _logger.ResetCounters();
             }
         };
-        websocket.OnError += (e) => Debug.LogError("WebSocket ¿ù»~: " + e);
+        websocket.OnError += (e) => Debug.LogError("WebSocket éŒ¯èª¤: " + e);
         websocket.OnClose += (e) => {
-            Debug.LogWarning("³s½u¤wÃö³¬¡I");
+            Debug.LogWarning("é€£ç·šå·²é—œé–‰ï¼");
             if (autoReconnect && !isQuitting)
             {
                 OnDisconnected?.Invoke();
                 if (autoReconnect && !isQuitting)
                 {
-                    Debug.Log("1 ¬í«á¹Á¸Õ­«·s³s½u...");
+                    Debug.Log("1 ç§’å¾Œå˜—è©¦é‡æ–°é€£ç·š...");
                     Invoke(nameof(ConnectToServer), 1.0f);
                 }
             }
@@ -88,7 +88,7 @@ public class NetworkManager : MonoBehaviour
         websocket.OnMessage += (bytes) =>
         {
             string payload = Encoding.UTF8.GetString(bytes);
-            // Debug.Log("¦¬¨ì­ì©l Payload: " + payload); // <--- Data ³¡¤À«O«ùµù¸Ñ
+            // Debug.Log("æ”¶åˆ°åŸå§‹ Payload: " + payload); // <--- Data éƒ¨åˆ†ä¿æŒè¨»è§£
             HandleMessage(payload);
         };
 
@@ -100,12 +100,12 @@ public class NetworkManager : MonoBehaviour
         BaseMessage baseMsg = JsonUtility.FromJson<BaseMessage>(jsonString);
         if (baseMsg == null || string.IsNullOrEmpty(baseMsg.type)) return;
 
-        // ¡¹¡¹¡¹ ­×§ï³B¡G¥u¿é¥X Type¡A¸Ô²Ó Data (jsonString) µù¸Ñ±¼ ¡¹¡¹¡¹
+        // â˜…â˜…â˜… ä¿®æ”¹è™•ï¼šåªè¼¸å‡º Typeï¼Œè©³ç´° Data (jsonString) è¨»è§£æ‰ â˜…â˜…â˜…
         _logger.LogReceive(baseMsg.type, jsonString);
 
         switch (baseMsg.type)
         {
-            // --- 1. ¹êÅé«Ø¥ß»P§ó·s ---
+            // --- 1. å¯¦é«”å»ºç«‹èˆ‡æ›´æ–° ---
             case "CreateEntityProgObj":
                 var progMsg = JsonUtility.FromJson<MessageWrapper<CreateProgObjData>>(jsonString);
                 OnCreateProgObj?.Invoke(progMsg.data);
@@ -131,7 +131,7 @@ public class NetworkManager : MonoBehaviour
                 OnDelEntity?.Invoke(delMsg.data);
                 break;
 
-            // --- 2. ©Ğ¶¡»P¨t²Î ---
+            // --- 2. æˆ¿é–“èˆ‡ç³»çµ± ---
             case "JoinRoomOK":
                 var joinOk = JsonUtility.FromJson<MessageWrapper<RoomData>>(jsonString);
                 OnJoinRoomOK?.Invoke(joinOk.data.id);
@@ -139,13 +139,13 @@ public class NetworkManager : MonoBehaviour
 
             case "JoinRoomError":
                 var joinErr = JsonUtility.FromJson<MessageWrapper<RoomErrorData>>(jsonString);
-                Debug.LogError($"¥[¤J©Ğ¶¡¥¢±Ñ: {joinErr.data.reason}");
-                // «ØÄ³¡G³o¸Ì¥i¥HÄ²µo¤@­Ó¨Æ¥óÅı UI Åã¥Ü¿ù»~µøµ¡
+                Debug.LogError($"åŠ å…¥æˆ¿é–“å¤±æ•—: {joinErr.data.reason}");
+                // å»ºè­°ï¼šé€™è£¡å¯ä»¥è§¸ç™¼ä¸€å€‹äº‹ä»¶è®“ UI é¡¯ç¤ºéŒ¯èª¤è¦–çª—
                 break;
 
             case "LeaveRoomError":
                 var leaveErr = JsonUtility.FromJson<MessageWrapper<RoomErrorData>>(jsonString);
-                Debug.LogError($"Â÷¶}©Ğ¶¡¥¢±Ñ: {leaveErr.data.reason}");
+                Debug.LogError($"é›¢é–‹æˆ¿é–“å¤±æ•—: {leaveErr.data.reason}");
                 break;
 
             case "LeaveRoomOK":
@@ -154,7 +154,7 @@ public class NetworkManager : MonoBehaviour
                 break;
 
             case "Ping":
-                Send<string>("Pong", ""); // ¦¬¨ì Ping ¦^À³ Pong
+                Send<string>("Pong", ""); // æ”¶åˆ° Ping å›æ‡‰ Pong
                 break;
 
             case "Audio":
@@ -163,8 +163,8 @@ public class NetworkManager : MonoBehaviour
                 break;
 
             case "FlushAudio":
-                // ¦¬¨ì¥´Â_°T¸¹¡AÄ²µo¨Æ¥ó
-                Debug.Log("<color=magenta>[Network] ¦¬¨ì FlushAudio¡A­n¨D²MªÅ­µ°T½w½Ä</color>");
+                // æ”¶åˆ°æ‰“æ–·è¨Šè™Ÿï¼Œè§¸ç™¼äº‹ä»¶
+                Debug.Log("<color=magenta>[Network] æ”¶åˆ° FlushAudioï¼Œè¦æ±‚æ¸…ç©ºéŸ³è¨Šç·©è¡</color>");
                 OnFlushAudio?.Invoke();
                 break;
 
@@ -175,7 +175,7 @@ public class NetworkManager : MonoBehaviour
                 {
                     string textContent = transMsg.data.message;
 
-                    Debug.Log($"<color=cyan>[Transcript] AI »¡: {textContent}</color>");
+                    Debug.Log($"<color=cyan>[Transcript] AI èªª: {textContent}</color>");
                     OnTranscriptReceived?.Invoke(textContent);
                 }
                 break;
@@ -187,7 +187,7 @@ public class NetworkManager : MonoBehaviour
                 break;
 
             default:
-                Debug.LogWarning($"¥¼©w¸qªºÃş«¬: {baseMsg.type}");
+                Debug.LogWarning($"æœªå®šç¾©çš„é¡å‹: {baseMsg.type}");
                 break;
         }
     }
@@ -198,7 +198,7 @@ public class NetworkManager : MonoBehaviour
         wrapper.type = eventName;
         wrapper.data = payloadData;
 
-        // ¡¹¡¹¡¹ ­×§ï³B¡G¥u¿é¥X Type¡A¸Ô²Ó Data (jsonString) µù¸Ñ±¼ ¡¹¡¹¡¹
+        // â˜…â˜…â˜… ä¿®æ”¹è™•ï¼šåªè¼¸å‡º Typeï¼Œè©³ç´° Data (jsonString) è¨»è§£æ‰ â˜…â˜…â˜…
         _logger.LogSend(eventName, payloadData);
 
         string finalJson = JsonUtility.ToJson(wrapper);
@@ -207,6 +207,6 @@ public class NetworkManager : MonoBehaviour
         {
             websocket.SendText(finalJson);
         }
-        // Debug.Log($"[Send] Type: {eventName}"); // µo°e®É¤]¥u¯d Type¡AData µù¸Ñ±¼
+        // Debug.Log($"[Send] Type: {eventName}"); // ç™¼é€æ™‚ä¹Ÿåªç•™ Typeï¼ŒData è¨»è§£æ‰
     }
 }
