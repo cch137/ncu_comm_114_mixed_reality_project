@@ -6,22 +6,19 @@ import {
   Session,
 } from "@google/genai";
 import debug from "debug";
-import {
-  serverSpeaker,
-  SERVER_AUDIO_SAMPLE_RATE,
-  resamplePcmAudioBuffer,
-} from "./audio";
+import { SERVER_AUDIO_SAMPLE_RATE, resamplePcmAudioBuffer } from "./audio";
 import z from "zod";
 
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { throttle } from "../../lib/utils/throttle";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
+import { loadInstructionsTemplate } from "../instructions";
 
 const log = debug("assistant");
 
 const DEFAULT_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
-const INPUT_SAMPLE_RATE = 16_000;
-const OUTPUT_SAMPLE_RATE = 24_000;
+export const INPUT_SAMPLE_RATE = 16_000;
+export const OUTPUT_SAMPLE_RATE = 24_000;
 const AUDIO_THROTTLE_DELAY_MS = 100;
 const MAX_PENDING_INPUT_PARAMS_LENGTH = 20;
 const MAX_PENDING_AUDIO_INPUT_CHUNKS_LENGTH = 1_000;
@@ -63,6 +60,9 @@ export type AssistantEvent =
   | ToolCallEvent;
 
 export class RealtimeAssistant extends ProtectedTinyNotifier<AssistantEvent> {
+  private static readonly systemInstructionP =
+    loadInstructionsTemplate("realtime-assistant");
+
   readonly id = generateRandomId();
 
   private session: Session | null = null;
@@ -124,7 +124,7 @@ export class RealtimeAssistant extends ProtectedTinyNotifier<AssistantEvent> {
               ],
             },
           ],
-          systemInstruction: "你的名字是茶壺小姐。一個有趣的 AI 助手。",
+          systemInstruction: (await RealtimeAssistant.systemInstructionP)({}),
         },
         callbacks: {
           onopen: () => {
@@ -254,15 +254,10 @@ export class RealtimeAssistant extends ProtectedTinyNotifier<AssistantEvent> {
 
       for (const part of parts) {
         if (part.inlineData?.data) {
-          const audioBuffer = Buffer.from(part.inlineData.data, "base64");
-
-          // Resample and play audio buffer for testing
-          serverSpeaker.play(
-            resamplePcmAudioBuffer(
-              audioBuffer,
-              OUTPUT_SAMPLE_RATE,
-              SERVER_AUDIO_SAMPLE_RATE
-            )
+          const audioBuffer = resamplePcmAudioBuffer(
+            Buffer.from(part.inlineData.data, "base64"),
+            OUTPUT_SAMPLE_RATE,
+            SERVER_AUDIO_SAMPLE_RATE
           );
 
           this.sendAudioOutput(audioBuffer);

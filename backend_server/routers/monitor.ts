@@ -4,12 +4,34 @@ import debug from "debug";
 
 import { upgradeWebSocket } from "../server";
 import { serverMic, serverSpeaker } from "../services/realtime/audio";
+import {
+  AssistantEventType,
+  RealtimeAssistant,
+} from "../services/realtime/assistant";
 
 const log = debug("monitor");
 
 const monitor = new Hono();
 
 const clients = new Set<WSContext<WebSocket>>();
+
+let assistant: RealtimeAssistant | null = null;
+
+serverMic.subscribe((pcm) => {
+  if (!assistant) {
+    assistant = new RealtimeAssistant();
+    assistant.subscribe((event) => {
+      switch (event.type) {
+        case AssistantEventType.AudioChunk: {
+          serverSpeaker.play(event.chunk);
+          break;
+        }
+      }
+    });
+    assistant.connect();
+  }
+  assistant.sendAudioInput(pcm);
+});
 
 serverSpeaker.subscribe((pcm) => {
   for (const client of clients) {
