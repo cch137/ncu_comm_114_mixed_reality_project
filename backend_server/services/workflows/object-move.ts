@@ -1,8 +1,13 @@
 import { EventEmitter } from "events";
 import createDebug from "debug";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
-import { RealtimeClient, type Pose } from "../realtime/connection";
+import { generateRandomId } from "../../lib/utils/generate-random-id";
+import {
+  RealtimeClient,
+  RealtimeRoom,
+  PoseSchema,
+  type Pose,
+} from "../realtime/connection";
 
 const debug = createDebug("mv-fn");
 
@@ -28,107 +33,112 @@ export const PoseSchema = z.object({
 });
 
 export const RelativeMoveSchema = z.object({
-    relative: z.object({
-        deltaPos: z.tuple([z.number(), z.number(), z.number()]),
-        deltaRot: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
-    }),
+  relative: z.object({
+    deltaPos: z.tuple([z.number(), z.number(), z.number()]),
+    deltaRot: z
+      .tuple([z.number(), z.number(), z.number(), z.number()])
+      .optional(),
+  }),
 });
 
 export const MoveTargetSchema = z.union([PoseSchema, RelativeMoveSchema]);
 export type MoveTarget = z.infer<typeof MoveTargetSchema>;
 
 export const MoveCommandSchema = z.object({
-    object_id: z.string().min(1),
-    to: MoveTargetSchema,
-    durationMs: z.number().int().min(0).max(60_000).optional(),
+  object_id: z.string().min(1),
+  to: MoveTargetSchema,
+  durationMs: z.number().int().min(0).max(60_000).optional(),
 });
-
 export type MoveCommand = z.infer<typeof MoveCommandSchema>;
 
-// -------------------- Relative helpers --------------------
-function isRelativeTarget(to: MoveTarget): to is z.infer<typeof RelativeMoveSchema> {
-    return (to as any)?.relative?.deltaPos !== undefined;
+// -------------------- Helpers --------------------
+
+/**
+ * 從 RealtimeClient 取得所在的 RealtimeRoom。
+ * 使用 Symbol 遍歷 + instanceof 檢查，確保型別安全。
+ */
+function getRoomFromClient(client: RealtimeClient): RealtimeRoom | null {
+  const syms = Object.getOwnPropertySymbols(client);
+  for (const sym of syms) {
+    // 這裡仍需轉型為 any 才能讀取 Symbol 屬性，但後續檢查是嚴格的
+    const value = (client as any)[sym];
+    if (value instanceof RealtimeRoom) {
+      return value;
+    }
+  }
+  return null;
 }
 
+// quaternion multiply: a * b
 function quatMultiply(
-    a: [number, number, number, number],
-    b: [number, number, number, number]
+  a: [number, number, number, number],
+  b: [number, number, number, number]
 ): [number, number, number, number] {
-    const [ax, ay, az, aw] = a;
-    const [bx, by, bz, bw] = b;
-
-    const x = aw * bx + ax * bw + ay * bz - az * by;
-    const y = aw * by - ax * bz + ay * bw + az * bx;
-    const z = aw * bz + ax * by - ay * bx + az * bw;
-    const w = aw * bw - ax * bx - ay * by - az * bz;
-
-    return [x, y, z, w];
+  const [ax, ay, az, aw] = a;
+  const [bx, by, bz, bw] = b;
+  return [
+    aw * bx + ax * bw + ay * bz - az * by,
+    aw * by - ax * bz + ay * bw + az * bx,
+    aw * bz + ax * by - ay * bx + az * bw,
+    aw * bw - ax * bx - ay * by - az * bz,
+  ];
 }
 
 /**
- * ✅ 把相對位移轉成絕對 Pose
- * 注意：這裡吃的是 connection.ts 裡「Unity 上報 ObjectPose」的 cache。
- * 如果 cache 還沒有 pose，直接 throw（避免算錯亂飛）。
+ * 計算目標絕對位置 (處理相對座標)
  */
 export function resolveTargetPose(options: {
-    client: RealtimeClient;
-    objectId: string;
-    to: MoveTarget;
+  current: Pose;
+  to: MoveTarget;
 }): Pose {
-    const { client, objectId, to } = options;
+  const { current, to } = options;
 
-    if (!isRelativeTarget(to)) {
-        return to as Pose;
-    }
+  if ("relative" in to) {
+    const { deltaPos, deltaRot } = to.relative;
+    const [dx, dy, dz] = deltaPos;
 
-    const current = client.getObjectPose(objectId);
-    if (!current) {
-        throw new Error(
-            `No cached pose for object '${objectId}'. Unity must send ClientEvent.ObjectPose before relative move.`
-        );
-    }
-
-    const [dx, dy, dz] = to.relative.deltaPos;
     const nextPos: [number, number, number] = [
-        current.pos[0] + dx,
-        current.pos[1] + dy,
-        current.pos[2] + dz,
+      current.pos[0] + dx,
+      current.pos[1] + dy,
+      current.pos[2] + dz,
     ];
 
-    let nextRot: [number, number, number, number] = current.rot;
-    if (to.relative.deltaRot) {
-        // 如果 Unity 定義「相對旋轉」乘法順序不同，這行可能要換成 quatMultiply(to.relative.deltaRot, current.rot)
-        nextRot = quatMultiply(current.rot, to.relative.deltaRot);
+    let nextRot = current.rot;
+    if (deltaRot) {
+      nextRot = quatMultiply(current.rot, deltaRot);
     }
 
     return { pos: nextPos, rot: nextRot };
+  }
+
+  // 這裡 TypeScript 已經知道 to 是 Pose,絕對
+  return to;
 }
 
 // -------------------- Task / State --------------------
+
 export enum MoveStatus {
-    QUEUED = "queued",
-    PROCESSING = "processing",
-    COMPLETED = "completed",
-    FAILED = "failed",
+  QUEUED = "queued",
+  PROCESSING = "processing",
+  COMPLETED = "completed",
+  FAILED = "failed",
 }
 
 export type MoveTaskState =
-    | { status: MoveStatus.QUEUED; finalPose: null; reason: null }
-    | { status: MoveStatus.PROCESSING; finalPose: null; reason: null }
-    | { status: MoveStatus.COMPLETED; finalPose: Pose; reason: null }
-    | { status: MoveStatus.FAILED; finalPose: null; reason: string };
+  | { status: MoveStatus.QUEUED; finalPose: null; reason: null }
+  | { status: MoveStatus.PROCESSING; finalPose: null; reason: null }
+  | { status: MoveStatus.COMPLETED; finalPose: Pose; reason: null }
+  | { status: MoveStatus.FAILED; finalPose: null; reason: string };
 
-export class MoveObjectTask extends EventEmitter<{
-    statusChange: [newStatus: MoveStatus, oldStatus: MoveStatus];
-}> {
-    private static readonly record = new Map<string, MoveObjectTask>();
+export class MoveObjectTask extends EventEmitter {
+  private static readonly record = new Map<string, MoveObjectTask>();
 
-    // ✅ 同一 object FIFO queue：promise tail
-    private static readonly objectQueueTail = new Map<string, Promise<void>>();
+  // ✅ 同一 object FIFO queue
+  private static readonly objectQueueTail = new Map<string, Promise<void>>();
 
-    private static enqueueForObject(objectId: string) {
-        const prevTail = this.objectQueueTail.get(objectId) ?? Promise.resolve();
-        const prevSafe = prevTail.catch(() => {});
+  private static enqueueForObject(objectId: string) {
+    const prevTail = this.objectQueueTail.get(objectId) ?? Promise.resolve();
+    const prevSafe = prevTail.catch(() => {});
 
   static getState(id: string): MoveTaskState | null {
     return this.record.get(id)?.getState() ?? null;
@@ -269,8 +279,8 @@ export class MoveObjectTask extends EventEmitter<{
           if (this.endAtMs === null) this.endAtMs = Date.now();
         });
 
-        const newTail = prevSafe.then(() => current);
-        this.objectQueueTail.set(objectId, newTail);
+    const newTail = prevSafe.then(() => current);
+    this.objectQueueTail.set(objectId, newTail);
 
   cancel() {
     if (
@@ -279,30 +289,30 @@ export class MoveObjectTask extends EventEmitter<{
     ) {
       return;
     }
+  }
 }
 
 (() => {
-    if (cleanupTimerStarted) return;
-    cleanupTimerStarted = true;
+  if (cleanupTimerStarted) return;
+  cleanupTimerStarted = true;
 
-    const CLEANUP_INTERVAL_MS = 15 * 60 * 1000; // 15 minute
-    const INACTIVITY_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  const CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
+  const INACTIVITY_TTL_MS = 5 * 60 * 1000;
 
-    const timer = setInterval(() => {
-        MoveObjectTask.cleanupInactive(INACTIVITY_TTL_MS);
-    }, CLEANUP_INTERVAL_MS);
+  const timer = setInterval(() => {
+    MoveObjectTask.cleanupInactive(INACTIVITY_TTL_MS);
+  }, CLEANUP_INTERVAL_MS);
 
-    timer.unref?.();
+  timer.unref?.();
 })();
 
 export function moveObject(options: {
-    client: RealtimeClient;
-    command: MoveCommand;
-    timeoutMs?: number;
+  client: RealtimeClient;
+  command: MoveCommand;
 }) {
-    const task = MoveObjectTask.create(options);
-    task.execute();
-    return task;
+  const task = MoveObjectTask.create(options);
+  task.execute();
+  return task;
 }
 
 export default {};
