@@ -1,0 +1,101 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8848978676146509874
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8848978676146509872}
+  - component: {fileID: 8848978676146509873}
+  m_Layer: 0
+  m_Name: Renderer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8848978676146509872
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8848978676146509874}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8848978676146509873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8848978676146509874}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 069de6407c4024a488f42792910ce68b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sequences: []
+  _Material: {fileID: 2100000, guid: 99c335a268d57ab489100acc172a135d, type: 2}
+  sUnlit: 
+  sUnlit_VertexColor: 
+  sLit: 
+  sLit_VertexColor: 
+  sWireframe: 
+  sWireframeShaded: 
+  Unlit: {fileID: 0}
+  Unlit_VertexColor: {fileID: 0}
+  Lit: {fileID: 0}
+  Lit_VertexColor: {fileID: 0}
+  Wireframe: {fileID: 0}
+  WireframeShaded: {fileID: 0}
+  currentShader: {fileID: 10752, guid: 0000000000000000f000000000000000, type: 0}
+  vfxFilter:
+  - {fileID: 8926484042661614526, guid: 31db964e0db0bc64294b48fe8c8aa291, type: 3}
+  - {fileID: 8926484042661614526, guid: b99032734ff29ed499ef6b3937c907fd, type: 3}
+  - {fileID: 8926484042661614526, guid: 88642adad5ec4914c9d32cd2c5475c17, type: 3}
+  - {fileID: 8926484042661614526, guid: 01c0439357693fe44854c0105a542961, type: 3}
+  - {fileID: 8926484042661614526, guid: f3e87a83145b91a47af842fdfd317a07, type: 3}
+  - {fileID: 8926484042661614526, guid: de216662ba68770458cbe8575abc3788, type: 3}
+  - {fileID: 8926484042661614526, guid: 18e8d22ad5de7c545826f30b36404f3e, type: 3}
+  - {fileID: 8926484042661614526, guid: 64401b93d1c2c224aae5a5c4e4f5bdbf, type: 3}
+  - {fileID: 8926484042661614526, guid: 6eec4f6cb9842e242b9b61f65e1db845, type: 3}
+  - {fileID: 8926484042661614526, guid: e9e6193acfea9014e8b98d5663d4f6b7, type: 3}
+  points:
+  - vfx: {fileID: 8926484042661614526, guid: 1b3ad82ff18df3f4bb7def4ee672fd1e, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: 5e849942861daf74cb8cc934e3deedd7, type: 3}
+    Capacity: 217088
+  - vfx: {fileID: 8926484042661614526, guid: ca496dd8930f768419c66880d3edd810, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: e4448bea83399094fa61b44ebb24946f, type: 3}
+    Capacity: 868352
+  - vfx: {fileID: 8926484042661614526, guid: f8e7f1930353181418e2e0fabfc7a38d, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: b9b9f905c625f2646b21c39dfdb04ffd, type: 3}
+    Capacity: 2073601
+  - vfx: {fileID: 8926484042661614526, guid: d8258eba1cee4d24e8153f6f80f0c119, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: 4256f8dc4f0fd104987e8ff390e1433e, type: 3}
+    Capacity: 3145728
+  - vfx: {fileID: 8926484042661614526, guid: fc22421cc1162bd4f851649fddd13ebf, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: 4149d6004b985eb42a47e6de6a35709d, type: 3}
+    Capacity: 3686400
+  - vfx: {fileID: 8926484042661614526, guid: 1ccdc47abd0752e4b8b44da71a74a862, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: cc398a4d85335b744a6a72c276365cc9, type: 3}
+    Capacity: 12582912
+  - vfx: {fileID: 8926484042661614526, guid: 295e31970f6582a47ad54870a684ae63, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: 3db58daf6ab0e38409bf07299d8c2114, type: 3}
+    Capacity: 14745600
+  - vfx: {fileID: 8926484042661614526, guid: adb0e8df7b6bf574e9149235db373024, type: 3}
+    vfxIMG: {fileID: 8926484042661614526, guid: ef0abae2e7338274dad4e0ecf3a55a92, type: 3}
+    Capacity: 50331648
+  pointSize: 4
+  currentVfx: 0
+  setWireframe: 0
+  PointIMG: 1
+  useTexture: 1

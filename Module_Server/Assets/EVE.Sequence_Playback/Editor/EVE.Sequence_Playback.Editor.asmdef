@@ -1,0 +1,18 @@
+{
+    "name": "EVE.Sequence_Playback.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:90fdeaa7cf58c9d44894ab3fd5023843"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

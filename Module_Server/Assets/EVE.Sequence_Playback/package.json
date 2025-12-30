@@ -1,0 +1,12 @@
+{
+  "name": "com.ef-eve.sequence_playback",
+  "version": "1.1.0",
+  "displayName": "Eve Sequence Playback",
+  "description": "Allows for loading and playing of .ply/.obj pointclouds/meshes",
+  "unity": "2020.1",
+  "unityRelease": "0f1",
+   "author": {
+    "name": "Alekas Raižys",
+    "email": "alekas.raizys@gmail.com"
+   }
+}

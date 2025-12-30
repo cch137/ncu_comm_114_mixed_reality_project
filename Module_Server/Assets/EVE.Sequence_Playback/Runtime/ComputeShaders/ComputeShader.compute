@@ -1,0 +1,24 @@
+﻿uint VertexCount;
+uint Width;
+float PointLimit;
+
+#pragma kernel TransferData  
+StructuredBuffer<float> PositionBuffer;
+StructuredBuffer<uint> ColorBuffer;
+RWTexture2D<float4> PositionMap;
+RWTexture2D<float4> ColorMap;
+
+[numthreads(8,8,1)]        
+void TransferData (uint2 id : SV_DispatchThreadID){
+	uint i = ((id.x + id.y * Width) % VertexCount) * (VertexCount / PointLimit);
+	PositionMap[id] = float4(PositionBuffer[i*3],PositionBuffer[i*3+1],PositionBuffer[i*3+2],1);
+	ColorMap[id] = float4(ColorBuffer[i*3+2],ColorBuffer[i*3+1],ColorBuffer[i*3],255.)/255.;
+}
+
+#pragma kernel TransferPosData  
+ 
+[numthreads(8,8,1)]        
+void TransferPosData (uint2 id : SV_DispatchThreadID){
+	uint i = ((id.x + id.y * Width) % VertexCount) * (VertexCount / PointLimit);
+	PositionMap[id] = float4(PositionBuffer[i*3],PositionBuffer[i*3+1],PositionBuffer[i*3+2],1);
+}
