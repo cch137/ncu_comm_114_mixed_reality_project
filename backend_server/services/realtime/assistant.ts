@@ -17,7 +17,9 @@ import { loadInstructionsTemplate } from "../instructions";
 const log = debug("assistant");
 
 const DEFAULT_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
+export const INPUT_CHANNEL_COUNT = 1;
 export const INPUT_SAMPLE_RATE = 16_000;
+export const OUTPUT_CHANNEL_COUNT = 1;
 export const OUTPUT_SAMPLE_RATE = 24_000;
 const AUDIO_THROTTLE_DELAY_MS = 100;
 const MAX_PENDING_INPUT_PARAMS_LENGTH = 20;
@@ -110,15 +112,14 @@ export class RealtimeAssistant extends ProtectedTinyNotifier<AssistantEvent> {
             {
               functionDeclarations: [
                 {
-                  name: "turn_on_the_light",
+                  name: "make_3d_object",
+                  description:
+                    "Use it when the user wants to make a 3D object. Please declare a clear object_name and object_description.",
                   parametersJsonSchema: z.toJSONSchema(
-                    z.object({ confirm: z.boolean() })
-                  ),
-                },
-                {
-                  name: "turn_off_the_light",
-                  parametersJsonSchema: z.toJSONSchema(
-                    z.object({ confirm: z.boolean() })
+                    z.object({
+                      object_name: z.string(),
+                      object_description: z.string(),
+                    })
                   ),
                 },
               ],
