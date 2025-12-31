@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 0
+    path: Assets/Scenes/Multi_camera_user.unity
+    guid: 491307270dba241438f0866d73fbbfcd
+  - enabled: 0
+    path: Assets/Scenes/OPTIC_client.unity
+    guid: aa25ca992f14fca4f9b3d3600f1000a0
+  - enabled: 0
+    path: Assets/Scenes/OPT_DEMO.unity
+    guid: fd1955c5e801c6043a498dbaf5200e4f
+  - enabled: 1
+    path: Assets/Scenes/Experiment_20objects.unity
+    guid: 9f528395cb5a8a7409844ebcbe4a3578
+  m_configObjects:
+    Unity.XR.WindowsMR.Settings: {fileID: 11400000, guid: d1c18252d0cdc134aa2ba08ea3b937c6, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 743b1eb1fc50ca34a811e57197a10d29, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 2d9163be8c59c6141bd20226de3469ea, type: 2}
