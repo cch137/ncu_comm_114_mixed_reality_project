@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import {
   ObjectGenerationOptionsSchema,
@@ -35,7 +36,9 @@ objectDesigner.post("/tasks", async (c) => {
   try {
     const createParams = ObjectGenerationOptionsSchema.parse({
       ...formData,
-      languageModel: google(model),
+      languageModel: model.startsWith("gemini-")
+        ? google(model)
+        : openai(model),
     });
     try {
       const task = ObjectGenerationTask.create(createParams);
