@@ -1,4 +1,5 @@
 import path from "path";
+import { mkdir, writeFile } from "fs/promises";
 import { EventEmitter } from "events";
 import debug from "debug";
 import { Worker } from "worker_threads";
@@ -6,6 +7,8 @@ import { generateText, type LanguageModel } from "ai";
 import { transpile, ModuleKind, ScriptTarget } from "typescript";
 import z from "zod";
 import { loadInstructionsTemplate } from "../instructions";
+
+const OUTPUT_DIRNAME = "public/output/workflows/object-designer/";
 
 type ProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
 
@@ -245,11 +248,37 @@ export class ObjectGenerationTask extends EventEmitter<{
         providerOptions: this.providerOptions,
       })
         .then(async (code) => {
+          const codeFilepath = path.join(OUTPUT_DIRNAME, this.id, "code.txt");
+          const gltfFilepath = path.join(
+            OUTPUT_DIRNAME,
+            this.id,
+            `${this.objectProps.object_name}.txt`
+          );
+
+          mkdir(path.dirname(codeFilepath), { recursive: true })
+            .then(async () => {
+              await writeFile(codeFilepath, code, "utf8");
+              log(`task[${this.id}] saved code`);
+            })
+            .catch((err) => log(`task[${this.id}] failed to save code`, err));
+
           if (this.cancelled) return;
           const gltf = await executeCodeAndExportGltf({
             code,
             timeoutMs: this.vmTimeoutMs,
           });
+
+          mkdir(path.dirname(gltfFilepath), { recursive: true })
+            .then(async () => {
+              await writeFile(
+                gltfFilepath,
+                JSON.stringify(gltf, null, 2),
+                "utf8"
+              );
+              log(`task[${this.id}] saved gltf`);
+            })
+            .catch((err) => log(`task[${this.id}] failed to save gltf`, err));
+
           this.gltf = gltf;
           this.reason = null;
           this.status = Status.COMPLETED;
