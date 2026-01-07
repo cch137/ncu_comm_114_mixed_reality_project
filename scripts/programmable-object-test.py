@@ -14,8 +14,8 @@ class ObjectMetadata:
 
 
 def create_object_task() -> ObjectMetadata:
-    object_name = "花瓶"
-    object_description = "一個乾隆年間的大花瓶"
+    object_name = "蒙娜麗莎的微笑"
+    object_description = "蒙娜麗莎的微笑"
 
     req = request.Request(
         API_BASE_URL + "/tasks",
