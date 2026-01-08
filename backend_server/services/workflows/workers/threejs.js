@@ -144,13 +144,16 @@ function postFail(from, err, logs, droppedLogs) {
     let GLTFExporter;
     try {
       ({ GLTFExporter } = await import(
-        "three/examples/jsm/exporters/GLTFExporter.js"
+        "three/addons/exporters/GLTFExporter.js"
       ));
     } catch {
       ({ GLTFExporter } = await import(
-        "three/addons/exporters/GLTFExporter.js"
+        "three/examples/jsm/exporters/GLTFExporter.js"
       ));
     }
+
+    // fix: inject GLTFExporter into THREE namespace to fix LLM reference errors.
+    if (!THREE.GLTFExporter) THREE.GLTFExporter = GLTFExporter;
 
     // Allowed modules for sandbox code
     const MODULES = Object.freeze({

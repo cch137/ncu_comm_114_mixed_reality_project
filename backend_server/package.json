@@ -17,6 +17,7 @@
     "@hono/node-server": "^1.19.6",
     "@hono/node-ws": "^1.2.0",
     "ai": "^6.0.3",
+    "better-sqlite3": "^12.5.0",
     "cbor-x": "^1.6.0",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
@@ -30,6 +31,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
