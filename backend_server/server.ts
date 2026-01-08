@@ -46,11 +46,28 @@ app.use(
   })
 );
 
-const port =
-  (process.env.PORT && Number.parseInt(process.env.PORT, 10)) || 3000;
+export const servers = (() => {
+  const ports = new Set<number>();
 
-export const server = serve({ fetch: app.fetch, port }, (info) => {
-  log(`online @ http://localhost:${info.port}`);
-});
+  const addPort = (v?: string) => {
+    if (v === undefined || v === "") return;
+    const n = v ? Number.parseInt(v, 10) : NaN;
+    if (Number.isInteger(n) && n > 0 && n <= 65535) ports.add(n);
+    else log(`invalid port: ${v}`);
+  };
 
-injectWebSocket(server);
+  addPort(process.env.PORT);
+  for (const p of (process.env.PORTS ?? "").split(",")) addPort(p.trim());
+
+  if (ports.size === 0) ports.add(3000);
+
+  return Object.freeze(
+    Array.from(ports).map((port) => {
+      const server = serve({ fetch: app.fetch, port }, (info) =>
+        log(`online @ http://localhost:${info.port}`)
+      );
+      injectWebSocket(server);
+      return server;
+    })
+  );
+})();
