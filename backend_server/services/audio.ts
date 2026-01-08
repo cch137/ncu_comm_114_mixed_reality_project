@@ -1,4 +1,4 @@
-import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
+import { ProtectedTinyNotifier } from "../lib/utils/tiny-notifier";
 
 export const SERVER_AUDIO_SAMPLE_RATE = 16_000;
 
