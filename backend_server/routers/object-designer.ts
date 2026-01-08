@@ -16,10 +16,13 @@ objectDesigner.get("/tasks/:id", async (c) => {
   return c.json({ success: true, data: state }, 200);
 });
 
-objectDesigner.get("/tasks/:id/gltf", async (c) => {
+objectDesigner.get("/tasks/:id/object", async (c) => {
   const state = ObjectGenerationTask.getState(c.req.param("id"));
-  if (state === null) return c.json(null, 404);
-  return c.json(state.gltf, 200);
+  if (state === null) return c.body(null, 404);
+  if (!state.object) return c.body(null, 404);
+  return c.body(new Uint8Array(state.object), 200, {
+    "Content-Type": "model/gltf-binary",
+  });
 });
 
 objectDesigner.post("/tasks", async (c) => {
