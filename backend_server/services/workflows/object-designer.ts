@@ -36,11 +36,15 @@ export type ObjectGenerationOptions = z.infer<
 >;
 
 export type ObjectGenerationState =
-  | { status: Status.QUEUED; gltf: null; reason: null }
-  | { status: Status.PROCESSING; gltf: null; reason: null }
-  | { status: Status.COMPLETED; gltf: object; reason: null }
-  | { status: Status.FAILED; gltf: null; reason: string }
-  | { status: Status; gltf: object | null; reason: string | null };
+  | { status: Status.QUEUED; object: null; reason: null }
+  | { status: Status.PROCESSING; object: null; reason: null }
+  | { status: Status.COMPLETED; object: Uint8Array<ArrayBuffer>; reason: null }
+  | { status: Status.FAILED; object: null; reason: string }
+  | {
+      status: Status;
+      object: Uint8Array<ArrayBuffer> | null;
+      reason: string | null;
+    };
 
 export enum Status {
   QUEUED = "queued",
@@ -92,23 +96,41 @@ export async function generateThreeJsCodeForObject(options: {
   return extractCodeFromMarkdown(text) ?? text;
 }
 
-type WorkerLogs = {
-  lines: { level: string; message: string; ts: number }[];
-  dropped: number;
-};
+const WorkerLogsSchema = z.object({
+  lines: z.array(
+    z.object({
+      level: z.string(),
+      message: z.string(),
+      ts: z.number(),
+    })
+  ),
+  dropped: z.number(),
+});
 
-type GltfWorkerResult =
-  | { success: true; gltf: object; logs: WorkerLogs }
-  | { success: false; error: string; from: string; logs: WorkerLogs };
+const GltfWorkerResultSchema = z.union([
+  z.object({
+    success: z.literal(true),
+    object: z.instanceof(ArrayBuffer),
+    logs: WorkerLogsSchema,
+  }),
+  z.object({
+    success: z.literal(false),
+    error: z.string(),
+    from: z.string(),
+    logs: WorkerLogsSchema,
+  }),
+]);
 
-export function executeCodeAndExportGltf({
+type GltfWorkerResult = z.infer<typeof GltfWorkerResultSchema>;
+
+export function executeCodeAndExportGlb({
   code,
   timeoutMs = 10_000,
 }: {
   code: string;
   timeoutMs?: number;
 }) {
-  return new Promise<object>((resolve, reject) => {
+  return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
     const workerPath = path.resolve(__dirname, "./workers/threejs.js");
 
     const js = transpile(code, {
@@ -129,10 +151,18 @@ export function executeCodeAndExportGltf({
       fn();
     };
 
-    worker.once("message", (msg: GltfWorkerResult) => {
-      done(() => {
-        if (msg.success) resolve(msg.gltf);
-        else reject(new Error(`[${msg.from}] ${msg.error}`));
+    worker.once("message", (msg: unknown) => {
+      done(async () => {
+        const parsed = GltfWorkerResultSchema.safeParse(msg);
+        if (!parsed.success) {
+          return reject(new Error("Invalid worker message"));
+        }
+        const result = parsed.data;
+        if (result.success) {
+          return resolve(new Uint8Array(result.object));
+        } else {
+          return reject(new Error(`[${result.from}] ${result.error}`));
+        }
       });
     });
 
@@ -196,7 +226,7 @@ export class ObjectGenerationTask extends EventEmitter<{
   private cancelled = false;
   private taskPromise: Promise<void> | null = null;
   private _status: Status = Status.QUEUED;
-  protected gltf: object | null = null;
+  protected object: Uint8Array<ArrayBuffer> | null = null;
   protected reason: string | null = null;
   private endAtMs: number | null = null;
   private readonly vmTimeoutMs?: number;
@@ -232,7 +262,11 @@ export class ObjectGenerationTask extends EventEmitter<{
   }
 
   getState(): ObjectGenerationState {
-    return { status: this.status, gltf: this.gltf, reason: this.reason };
+    return {
+      status: this.status,
+      object: this.object,
+      reason: this.reason,
+    };
   }
 
   execute() {
@@ -249,10 +283,10 @@ export class ObjectGenerationTask extends EventEmitter<{
       })
         .then(async (code) => {
           const codeFilepath = path.join(OUTPUT_DIRNAME, this.id, "code.txt");
-          const gltfFilepath = path.join(
+          const glbFilepath = path.join(
             OUTPUT_DIRNAME,
             this.id,
-            `${this.objectProps.object_name}.txt`
+            `${this.objectProps.object_name}.glb`
           );
 
           mkdir(path.dirname(codeFilepath), { recursive: true })
@@ -263,29 +297,25 @@ export class ObjectGenerationTask extends EventEmitter<{
             .catch((err) => log(`task[${this.id}] failed to save code`, err));
 
           if (this.cancelled) return;
-          const gltf = await executeCodeAndExportGltf({
+          const glb = await executeCodeAndExportGlb({
             code,
             timeoutMs: this.vmTimeoutMs,
           });
 
-          mkdir(path.dirname(gltfFilepath), { recursive: true })
+          mkdir(path.dirname(glbFilepath), { recursive: true })
             .then(async () => {
-              await writeFile(
-                gltfFilepath,
-                JSON.stringify(gltf, null, 2),
-                "utf8"
-              );
-              log(`task[${this.id}] saved gltf`);
+              await writeFile(glbFilepath, glb, "binary");
+              log(`task[${this.id}] saved glb`);
             })
-            .catch((err) => log(`task[${this.id}] failed to save gltf`, err));
+            .catch((err) => log(`task[${this.id}] failed to save glb`, err));
 
-          this.gltf = gltf;
+          this.object = glb;
           this.reason = null;
           this.status = Status.COMPLETED;
         })
         .catch((err) => {
           if (this.cancelled) return;
-          this.gltf = null;
+          this.object = null;
           this.reason = (err as Error)?.message ?? String(err);
           this.status = Status.FAILED;
         })
@@ -303,7 +333,7 @@ export class ObjectGenerationTask extends EventEmitter<{
       return;
     }
     this.cancelled = true;
-    this.gltf = null;
+    this.object = null;
     this.reason = "Task was cancelled";
     this.status = Status.FAILED;
     this.endAtMs = Date.now();

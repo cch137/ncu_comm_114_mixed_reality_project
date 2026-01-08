@@ -6,7 +6,7 @@ import {
   Session,
 } from "@google/genai";
 import debug from "debug";
-import { SERVER_AUDIO_SAMPLE_RATE, resamplePcmAudioBuffer } from "./audio";
+import { SERVER_AUDIO_SAMPLE_RATE, resamplePcmAudioBuffer } from "../audio";
 import z from "zod";
 
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";

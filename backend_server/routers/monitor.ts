@@ -3,7 +3,7 @@ import { WSContext } from "hono/ws";
 import debug from "debug";
 
 import { upgradeWebSocket } from "../server";
-import { serverMic, serverSpeaker } from "../services/realtime/audio";
+import { serverMic, serverSpeaker } from "../services/audio";
 import {
   AssistantEventType,
   RealtimeAssistant,

@@ -45,15 +45,16 @@ def poll_task_gltf(task_id: str):
             method="GET",
         )
 
+        # TODO: 因為 object state 的裡面包含 binary（以前是 JSON），需要修正此處，否則無法繼續執行
         with request.urlopen(req) as resp:
-            # Response schema: { status: string, reason: string, gltf: object }
+            # Response schema: { status: string, reason: string, object: object }
             task_state = json.loads(resp.read().decode("utf-8"))["data"]
 
             print("task status:", task_state["status"])
             if task_state["status"] == "completed":
-                if not task_state["gltf"]:
-                    raise Exception("gltf not found")
-                return task_state["gltf"]
+                if not task_state["object"]:
+                    raise Exception("object not found")
+                return task_state["object"]
 
             if task_state["status"] == "failed":
                 if not task_state["reason"]:

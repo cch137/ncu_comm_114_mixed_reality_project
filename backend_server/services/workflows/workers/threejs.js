@@ -109,10 +109,10 @@ function defineBlocked(sandbox, name) {
   });
 }
 
-function postSuccess(gltf, logs, droppedLogs) {
+function postSuccess(object, logs, droppedLogs) {
   parentPort.postMessage({
     success: true,
-    gltf,
+    object,
     logs: { lines: logs, dropped: droppedLogs },
   });
 }
@@ -194,7 +194,7 @@ function postFail(from, err, logs, droppedLogs) {
       // internal module map for the restricted require
       __MODULES__: MODULES,
 
-      EXPORT_GLTF: (gltf) => postSuccess(gltf, logs, getDropped()),
+      EXPORT_GLB: (obj) => postSuccess(obj, logs, getDropped()),
       EXPORT_ERROR: (err) => postFail("sandbox", err, logs, getDropped()),
     };
     sandbox.globalThis = sandbox;
