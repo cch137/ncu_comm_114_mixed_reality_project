@@ -6,13 +6,17 @@ import { stringifyError } from "../../lib/utils/error-handle";
 
 const log = debug("db");
 
+const QUERIES_DIRNAME = path.resolve(__dirname, "queries");
 const MIGRATIONS_DIRNAME = path.resolve(__dirname, "migrations");
 const DATABASE_DIRNAME = path.resolve(__dirname, "data");
 
-function readMigrationSql(sqlFile: string) {
-  const filepath = path.join(MIGRATIONS_DIRNAME, `${sqlFile}.sql`);
+function readSql(sqlFile: string, migration = false) {
+  const filepath = path.join(
+    migration ? MIGRATIONS_DIRNAME : QUERIES_DIRNAME,
+    `${sqlFile}.sql`
+  );
   if (!fs.existsSync(filepath)) {
-    throw new Error(`Database migration SQL not found: ${filepath}`);
+    throw new Error(`Database SQL not found: ${filepath}`);
   }
   return fs.readFileSync(filepath, "utf8");
 }
@@ -31,29 +35,32 @@ async function sha256(data: string | Uint8Array) {
 
 export type AnyFn = (...args: any[]) => any;
 
-export type MigrationFactoryContext<DB, K extends string> = {
+export type QueryFactoryContext<DB, K extends string> = {
   db: DB;
   name: K; // function name, e.g. "Initialize"
   sqlFilename: string;
   sql: string;
 };
 
-export type MigrationSpec<DB, K extends string, F extends AnyFn> = {
-  file: string;
-  build: (ctx: MigrationFactoryContext<DB, K>) => F;
-};
+export type QuerySpec<DB, K extends string, F extends AnyFn> =
+  | {
+      file?: string;
+      migration?: true;
+      build: (ctx: QueryFactoryContext<DB, K>) => F;
+    }
+  | ((ctx: QueryFactoryContext<DB, K>) => F);
 
-export type MigrationSpecs<M extends Record<string, AnyFn>, DB> = {
-  [K in keyof M & string]: MigrationSpec<DB, K, M[K]>;
+export type QuerySpecs<M extends Record<string, AnyFn>, DB> = {
+  [K in keyof M & string]: QuerySpec<DB, K, M[K]>;
 };
 
 export class Database<M extends Record<string, AnyFn>> extends BetterSqlite3 {
-  public readonly migrations: M;
+  public readonly queries: M;
   public readonly dirname: string;
 
   constructor(
     public readonly dbName: string,
-    specs: MigrationSpecs<M, Database<M>>,
+    specs: QuerySpecs<M, Database<M>>,
     options?: BetterSqlite3.Options
   ) {
     const dirname = path.join(DATABASE_DIRNAME, dbName);
@@ -65,14 +72,19 @@ export class Database<M extends Record<string, AnyFn>> extends BetterSqlite3 {
     super(filepath, options);
 
     for (const name in specs) {
-      const { file: sqlFilename, build } = specs[name];
-      const sql = readMigrationSql(sqlFilename);
+      const spec = specs[name];
+      const {
+        file: sqlFilename = name,
+        migration,
+        build,
+      } = typeof spec === "function" ? { build: spec } : spec;
+      const sql = readSql(sqlFilename, migration);
 
       built[name as keyof M] = build({ db: this, name, sqlFilename, sql });
     }
 
     this.dirname = dirname;
-    this.migrations = built;
+    this.queries = built;
   }
 
   log(...args: any[]) {
@@ -80,7 +92,7 @@ export class Database<M extends Record<string, AnyFn>> extends BetterSqlite3 {
   }
 }
 
-export type MigrationMap = {
+export type QueryMap = {
   initialize: () => Promise<void>;
 
   add_result: (params: {
@@ -143,9 +155,10 @@ export type MigrationMap = {
   } | null>;
 };
 
-export const db = new Database<MigrationMap>("main", {
+export const db = new Database<QueryMap>("main", {
   initialize: {
     file: "0001_initialization",
+    migration: true,
     build:
       ({ db, sql }) =>
       async () => {
@@ -154,7 +167,7 @@ export const db = new Database<MigrationMap>("main", {
         db.pragma("busy_timeout = 5000");
 
         // We need to strictly verify the initialization SQL because schema differences can cause major issues;
-        // other migrations don’t need this level of checking.
+        // other queries don’t need this level of checking.
         const checksum = await sha256(sql);
         const checksumFilepath = path.join(db.dirname, "checksum.sha256");
 
@@ -173,143 +186,125 @@ export const db = new Database<MigrationMap>("main", {
       },
   },
 
-  add_result: {
-    file: "0002_add_result",
-    build:
-      ({ db, sql }) =>
-      async ({ task, result }) => {
-        // Enforce the table CHECK constraint expectations
-        const mime = result.mime_type ?? null;
-        const blob = result.blob_content ?? null;
-        if ((mime === null) !== (blob === null)) {
-          throw new Error(
-            "mime_type and blob_content must both be null or both be non-null"
-          );
-        }
+  add_result:
+    ({ db, sql }) =>
+    async ({ task, result }) => {
+      // Enforce the table CHECK constraint expectations
+      const mime = result.mime_type ?? null;
+      const blob = result.blob_content ?? null;
+      if ((mime === null) !== (blob === null)) {
+        throw new Error(
+          "mime_type and blob_content must both be null or both be non-null"
+        );
+      }
 
-        const stmt = db.prepare(sql);
+      const stmt = db.prepare(sql);
 
-        const run = db.transaction(() => {
-          const row = stmt.get({
-            task_id: task.id,
-            task_name: task.name,
-            task_description: task.description,
+      const run = db.transaction(() => {
+        const row = stmt.get({
+          task_id: task.id,
+          task_name: task.name,
+          task_description: task.description,
 
-            version: result.version,
-            code: result.code ?? null,
-            error: result.error ?? null,
-            mime_type: mime,
-            blob_content: blob,
-          }) as { id: number } | undefined;
+          version: result.version,
+          code: result.code ?? null,
+          error: result.error ?? null,
+          mime_type: mime,
+          blob_content: blob,
+        }) as { id: number } | undefined;
 
-          if (!row) throw new Error("add_result: missing RETURNING id");
-          return row;
-        });
+        if (!row) throw new Error("add_result: missing RETURNING id");
+        return row;
+      });
 
-        return run();
-      },
-  },
+      return run();
+    },
 
-  get_result: {
-    file: "0003_get_result",
-    build:
-      ({ db, sql }) =>
-      async ({ task_id, version }) => {
-        const stmt = db.prepare(sql);
-        const row = stmt.get({ task_id, version }) as
-          | {
-              id: number;
-              task_id: string;
-              version: string;
-              code: string | null;
-              error: string | null;
-              mime_type: string | null;
-              blob_content: Buffer | null;
-              created_at: number;
-            }
-          | undefined;
+  get_result:
+    ({ db, sql }) =>
+    async ({ task_id, version }) => {
+      const stmt = db.prepare(sql);
+      const row = stmt.get({ task_id, version }) as
+        | {
+            id: number;
+            task_id: string;
+            version: string;
+            code: string | null;
+            error: string | null;
+            mime_type: string | null;
+            blob_content: Buffer | null;
+            created_at: number;
+          }
+        | undefined;
 
-        return row ?? null;
-      },
-  },
+      return row ?? null;
+    },
 
-  get_latest_result: {
-    file: "0004_get_latest_result",
-    build:
-      ({ db, sql }) =>
-      async ({ task_id }) => {
-        const stmt = db.prepare(sql);
-        const row = stmt.get({ task_id }) as
-          | {
-              id: number;
-              task_id: string;
-              version: string;
-              code: string | null;
-              error: string | null;
-              mime_type: string | null;
-              blob_content: Buffer | null;
-              created_at: number;
-            }
-          | undefined;
+  get_latest_result:
+    ({ db, sql }) =>
+    async ({ task_id }) => {
+      const stmt = db.prepare(sql);
+      const row = stmt.get({ task_id }) as
+        | {
+            id: number;
+            task_id: string;
+            version: string;
+            code: string | null;
+            error: string | null;
+            mime_type: string | null;
+            blob_content: Buffer | null;
+            created_at: number;
+          }
+        | undefined;
 
-        return row ?? null;
-      },
-  },
+      return row ?? null;
+    },
 
-  get_result_list: {
-    file: "0005_get_result_list",
-    build:
-      ({ db, sql }) =>
-      async ({ task_id }) => {
-        const stmt = db.prepare(sql);
-        const rows = stmt.all({ task_id }) as Array<{
-          version: string;
-          success: 0 | 1;
-          error: string | null;
-        }>;
+  get_result_list:
+    ({ db, sql }) =>
+    async ({ task_id }) => {
+      const stmt = db.prepare(sql);
+      const rows = stmt.all({ task_id }) as Array<{
+        version: string;
+        success: 0 | 1;
+        error: string | null;
+      }>;
 
-        return rows.map((r) => ({
-          version: r.version,
-          success: Boolean(r.success),
-          error: r.error,
-        }));
-      },
-  },
+      return rows.map((r) => ({
+        version: r.version,
+        success: Boolean(r.success),
+        error: r.error,
+      }));
+    },
 
-  get_result_code: {
-    file: "0006_get_result_code",
-    build:
-      ({ db, sql }) =>
-      async ({ task_id, version }) => {
-        const stmt = db.prepare(sql);
-        const row = stmt.get({ task_id, version }) as
-          | { code: string | null; error: string | null }
-          | undefined;
+  get_result_code:
+    ({ db, sql }) =>
+    async ({ task_id, version }) => {
+      const stmt = db.prepare(sql);
+      const row = stmt.get({ task_id, version }) as
+        | { code: string | null; error: string | null }
+        | undefined;
 
-        return row ?? null;
-      },
-  },
+      return row ?? null;
+    },
 
-  get_result_content: {
-    file: "0007_get_result_content",
-    build:
-      ({ db, sql }) =>
-      async ({ task_id, version }) => {
-        const stmt = db.prepare(sql);
-        const row = stmt.get({ task_id, version }) as
-          | {
-              mime_type: string | null;
-              blob_content: Buffer | null;
-              error: string | null;
-            }
-          | undefined;
+  get_result_content:
+    ({ db, sql }) =>
+    async ({ task_id, version }) => {
+      const stmt = db.prepare(sql);
+      const row = stmt.get({ task_id, version }) as
+        | {
+            mime_type: string | null;
+            blob_content: Buffer | null;
+            error: string | null;
+          }
+        | undefined;
 
-        return row ?? null;
-      },
-  },
+      return row ?? null;
+    },
 });
 
-db.migrations.initialize().catch((err) => {
+db.queries.initialize().catch((err) => {
   log("initialization error:", stringifyError(err));
   process.exit(1);
 });
