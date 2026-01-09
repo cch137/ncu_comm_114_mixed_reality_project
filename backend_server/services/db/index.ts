@@ -36,14 +36,10 @@ type QueryMap = {
     ended_at: number;
   } | null>;
 
-  get_latest_result: (params: { task_id: string }) => Promise<{
+  get_latest_version: (params: { task_id: string }) => Promise<{
     id: number;
     task_id: string;
     version: string;
-    code: string | null;
-    error: string | null;
-    mime_type: string | null;
-    blob_content: Buffer | null;
     started_at: number;
     ended_at: number;
   } | null>;
@@ -63,14 +59,14 @@ type QueryMap = {
     }>;
   } | null>;
 
-  get_result_code: (params: { task_id: string; version: string }) => Promise<{
+  get_result_code: (params: { task_id: string; version?: string }) => Promise<{
     code: string | null;
     error: string | null;
   } | null>;
 
   get_result_content: (params: {
     task_id: string;
-    version: string;
+    version?: string;
   }) => Promise<{
     mime_type: string | null;
     blob_content: Buffer | null;
@@ -208,7 +204,7 @@ export function createDatabase(name: string) {
         return row ?? null;
       },
 
-    get_latest_result:
+    get_latest_version:
       ({ db, sql }) =>
       async ({ task_id }) => {
         const stmt = db.prepare(sql);
@@ -217,10 +213,6 @@ export function createDatabase(name: string) {
               id: number;
               task_id: string;
               version: string;
-              code: string | null;
-              error: string | null;
-              mime_type: string | null;
-              blob_content: Buffer | null;
               started_at: number;
               ended_at: number;
             }
@@ -274,6 +266,8 @@ export function createDatabase(name: string) {
     get_result_code:
       ({ db, sql }) =>
       async ({ task_id, version }) => {
+        version ??= (await db.queries.get_latest_version({ task_id }))?.version;
+        if (!version) return null;
         const stmt = db.prepare(sql);
         const row = stmt.get({ task_id, version }) as
           | { code: string | null; error: string | null }
@@ -285,6 +279,8 @@ export function createDatabase(name: string) {
     get_result_content:
       ({ db, sql }) =>
       async ({ task_id, version }) => {
+        version ??= (await db.queries.get_latest_version({ task_id }))?.version;
+        if (!version) return null;
         const stmt = db.prepare(sql);
         const row = stmt.get({ task_id, version }) as
           | {

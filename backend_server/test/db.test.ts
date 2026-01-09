@@ -117,8 +117,8 @@ describe("services/db/index.ts", () => {
       expect(contentRow!.error).toBe(v2.error);
     });
 
-    it("get_latest_result (should be v2)", async () => {
-      const latest = await db.queries.get_latest_result({ task_id: task.id });
+    it("get_latest_version (should be v2)", async () => {
+      const latest = await db.queries.get_latest_version({ task_id: task.id });
       expect(latest).not.toBeNull();
       expect(latest!.id).toBe(v2Id);
       expect(latest!.version).toBe(v2.version);
@@ -194,7 +194,7 @@ describe("services/db/index.ts", () => {
 
       expect(await db.queries.get_task({ task_id: task.id })).toBeNull();
       expect(
-        await db.queries.get_latest_result({ task_id: task.id })
+        await db.queries.get_latest_version({ task_id: task.id })
       ).toBeNull();
       expect(
         await db.queries.get_result({ task_id: task.id, version: v2.version })
