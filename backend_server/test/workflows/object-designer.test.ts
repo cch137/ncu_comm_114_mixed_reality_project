@@ -1,10 +1,8 @@
 // test/workflows/object-designer.test.ts
 import path from "path";
 import { mkdir, readFile, writeFile, stat } from "fs/promises";
-import {
-  extractCodeFromMarkdown,
-  executeCodeAndExportGlb,
-} from "../../services/workflows/object-designer";
+import { generateGlbFromCode } from "../../services/workflows/generate-glb-from-code";
+import { extractCodeFromMarkdown } from "../../services/workflows/generate-code";
 
 describe("workflows/object-designer", () => {
   it("extracts code from teapot.md and exports GLTF to output file", async () => {
@@ -24,7 +22,7 @@ describe("workflows/object-designer", () => {
     expect(typeof code).toBe("string");
     expect(code.trim().length).toBeGreaterThan(0);
 
-    const glb = await executeCodeAndExportGlb({ code });
+    const glb = await generateGlbFromCode({ code });
     expect(glb).toBeTruthy();
     expect(typeof glb).toBe("object");
 

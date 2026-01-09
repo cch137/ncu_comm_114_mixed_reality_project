@@ -2,25 +2,18 @@ import path from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { EventEmitter } from "events";
 import debug from "debug";
-import { Worker } from "worker_threads";
-import { generateText, type LanguageModel } from "ai";
-import { transpile, ModuleKind, ScriptTarget } from "typescript";
+import { type LanguageModel } from "ai";
 import z from "zod";
-import { loadInstructionsTemplate } from "../instructions";
-export * as v2 from "./object-designer-v2";
+import { loadInstructionsTemplateSync } from "../instructions";
+import { generateCode } from "../workflows/generate-code";
+import { generateGlbFromCode } from "../workflows/generate-glb-from-code";
+import {
+  ObjectProps,
+  ObjectPropsSchema,
+  ProviderOptions,
+} from "../workflows/schemas";
 
 const OUTPUT_DIRNAME = "public/output/workflows/object-designer/";
-
-export type ProviderOptions = Parameters<
-  typeof generateText
->[0]["providerOptions"];
-
-export const ObjectPropsSchema = z.object({
-  object_name: z.string().min(1),
-  object_description: z.string().optional().default(""),
-});
-
-export type ObjectProps = z.infer<typeof ObjectPropsSchema>;
 
 export const ObjectGenerationOptionsSchema = ObjectPropsSchema.extend({
   languageModel: z.custom<LanguageModel>((val) => {
@@ -58,130 +51,12 @@ export enum Status {
 
 const log = debug("obj-dsgn");
 
-const instructions = (() => {
-  const generationP =
-    loadInstructionsTemplate<ObjectProps>("threejs-generation");
-
-  return {
-    generation: async (params: ObjectProps) => (await generationP)(params),
-  };
-})();
-
-export function extractCodeFromMarkdown(markdown: string): string | null {
-  const regex = /```(?:[^\n]*)\n([\s\S]*?)```\n?/;
-  const match = markdown.match(regex);
-  if (match) {
-    return match[1];
-  }
-  const startTagIndex = markdown.indexOf("```");
-  if (startTagIndex === -1) return null;
-  const firstLineEndIndex = markdown.indexOf("\n", startTagIndex);
-  if (firstLineEndIndex === -1) return "";
-  const codeStartIndex = firstLineEndIndex + 1;
-  const endTagIndex = markdown.indexOf("```", codeStartIndex);
-  if (endTagIndex !== -1) {
-    return markdown.substring(codeStartIndex, endTagIndex);
-  } else {
-    return markdown.substring(codeStartIndex);
-  }
-}
-
-export async function generateThreeJsCodeForObject(options: {
-  props: ObjectProps;
-  model: LanguageModel;
-  providerOptions?: ProviderOptions;
-}) {
-  const { text } = await generateText({
-    model: options.model,
-    prompt: await instructions.generation(options.props),
-    providerOptions: options.providerOptions,
-  });
-  return extractCodeFromMarkdown(text) ?? text;
-}
-
-const WorkerLogsSchema = z.object({
-  lines: z.array(
-    z.object({
-      level: z.string(),
-      message: z.string(),
-      ts: z.number(),
-    })
-  ),
-  dropped: z.number(),
-});
-
-const GltfWorkerResultSchema = z.union([
-  z.object({
-    success: z.literal(true),
-    object: z.instanceof(ArrayBuffer),
-    logs: WorkerLogsSchema,
-  }),
-  z.object({
-    success: z.literal(false),
-    error: z.string(),
-    from: z.string(),
-    logs: WorkerLogsSchema,
-  }),
-]);
-
-type GltfWorkerResult = z.infer<typeof GltfWorkerResultSchema>;
-
-export function executeCodeAndExportGlb({
-  code,
-  timeoutMs = 10_000,
-}: {
-  code: string;
-  timeoutMs?: number;
-}) {
-  return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
-    const workerPath = path.resolve(__dirname, "./workers/threejs.js");
-
-    const js = transpile(code, {
-      module: ModuleKind.CommonJS,
-      target: ScriptTarget.ES2022,
-    });
-
-    const worker = new Worker(workerPath, { workerData: { code: js } });
-
-    const timer = setTimeout(() => {
-      worker.terminate().catch(() => {});
-      reject(new Error("Worker timeout"));
-    }, timeoutMs);
-
-    const done = (fn: () => void) => {
-      clearTimeout(timer);
-      worker.terminate().catch(() => {});
-      fn();
-    };
-
-    worker.once("message", (msg: unknown) => {
-      done(async () => {
-        const parsed = GltfWorkerResultSchema.safeParse(msg);
-        if (!parsed.success) {
-          return reject(new Error("Invalid worker message"));
-        }
-        const result = parsed.data;
-        if (result.success) {
-          return resolve(new Uint8Array(result.object));
-        } else {
-          return reject(new Error(`[${result.from}] ${result.error}`));
-        }
-      });
-    });
-
-    worker.once("error", (err) => done(() => reject(err)));
-
-    worker.once("exit", (code) => {
-      if (code !== 0)
-        done(() => reject(new Error(`Worker exited with code ${code}`)));
-    });
-  });
-}
-
 export class ObjectGenerationTask extends EventEmitter<{
   statusChange: [newStatus: Status, oldStatus: Status];
 }> {
   private static readonly record = new Map<string, ObjectGenerationTask>();
+  private static readonly renderThreeJsGenerationPrompt =
+    loadInstructionsTemplateSync<ObjectProps>("threejs-generation");
 
   static create(options: ObjectGenerationOptions) {
     return new ObjectGenerationTask(options);
@@ -279,8 +154,12 @@ export class ObjectGenerationTask extends EventEmitter<{
     this.taskPromise = new Promise<void>((resolve) => {
       if (this.cancelled) return resolve();
 
-      generateThreeJsCodeForObject({
-        props: this.objectProps,
+      const instructions = ObjectGenerationTask.renderThreeJsGenerationPrompt(
+        this.objectProps
+      );
+
+      generateCode({
+        prompt: instructions,
         model: this.languageModel,
         providerOptions: this.providerOptions,
       })
@@ -300,7 +179,7 @@ export class ObjectGenerationTask extends EventEmitter<{
             .catch((err) => log(`task[${this.id}] failed to save code`, err));
 
           if (this.cancelled) return;
-          const glb = await executeCodeAndExportGlb({
+          const glb = await generateGlbFromCode({
             code,
             timeoutMs: this.vmTimeoutMs,
           });
@@ -352,5 +231,3 @@ export class ObjectGenerationTask extends EventEmitter<{
     ObjectGenerationTask.cleanupInactive(INACTIVITY_TTL_MS);
   }, CLEANUP_INTERVAL_MS);
 })();
-
-export default {};
