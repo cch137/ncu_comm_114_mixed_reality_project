@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS object_generation_tasks (
   id        TEXT PRIMARY KEY NOT NULL,
-  name        TEXT NOT NULL,
-  description TEXT NOT NULL,
+  name        TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
   created_at  INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000),
   modified_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
 );
@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS object_generation_results (
   mime_type     TEXT,          -- e.g. model/gltf+json, model/gltf-binary
   blob_content  BLOB,
 
-  created_at    INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000),
+  started_at    INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000),
+  ended_at      INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000),
 
   FOREIGN KEY (task_id) REFERENCES object_generation_tasks(id) ON UPDATE CASCADE ON DELETE CASCADE,
   UNIQUE (task_id, version),

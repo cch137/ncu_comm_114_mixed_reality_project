@@ -1,4 +1,3 @@
--- migrations/0003_get_result.sql
 SELECT
   id,
   task_id,
@@ -7,7 +6,8 @@ SELECT
   error,
   mime_type,
   blob_content,
-  created_at
+  started_at,
+  ended_at
 FROM object_generation_results
 WHERE task_id = @task_id AND version = @version
 LIMIT 1;

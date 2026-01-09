@@ -1,4 +1,3 @@
--- migrations/0007_get_result_content.sql
 SELECT
   mime_type,
   blob_content,
