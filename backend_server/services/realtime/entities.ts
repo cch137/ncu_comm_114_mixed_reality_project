@@ -1,5 +1,5 @@
 import type { Pose } from "./connection";
-import type { ObjectProps } from "../workflows/object-designer";
+import type { ObjectProps } from "../workflows/schemas";
 import { ProtectedTinyNotifier } from "../../lib/utils/tiny-notifier";
 import { generateRandomId } from "../../lib/utils/generate-random-id";
 

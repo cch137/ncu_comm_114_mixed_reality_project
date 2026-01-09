@@ -1,16 +1,18 @@
+// Object Designer (version 2)
 import { EventEmitter } from "events";
 import debug from "debug";
 import { type LanguageModel } from "ai";
 import z from "zod";
-import { connect } from "../db";
-import { generateRandomId } from "../../lib/utils/generate-random-id";
+import { connect } from "./db";
+import { generateRandomId } from "../lib/utils/generate-random-id";
+import { generateCode } from "./workflows/generate-code";
+import { generateGlbFromCode } from "./workflows/generate-glb-from-code";
 import {
-  executeCodeAndExportGlb,
-  generateThreeJsCodeForObject,
   ObjectProps,
   ObjectPropsSchema,
   ProviderOptions,
-} from "./object-designer";
+} from "./workflows/schemas";
+import { loadInstructionsTemplateSync } from "./instructions";
 
 export const ObjectGenerationOptionsSchema = z.object({
   id: z.string().optional(),
@@ -64,7 +66,7 @@ export type ObjectGenerationState = {
   tasks: ObjectGenerationTaskState[];
 };
 
-const log = debug("obj-dsgn-");
+const log = debug("obj-dsgn");
 
 export class ObjectGenerationTask extends EventEmitter<{
   statusChange: [newStatus: Status, oldStatus: Status];
@@ -72,6 +74,9 @@ export class ObjectGenerationTask extends EventEmitter<{
   error: [{ error: string }];
   ended: [];
 }> {
+  private static readonly renderThreeJsGenerationPrompt =
+    loadInstructionsTemplateSync<ObjectProps>("threejs-generation");
+
   constructor({
     id,
     version,
@@ -147,15 +152,19 @@ export class ObjectGenerationTask extends EventEmitter<{
     this.taskPromise = new Promise<void>((resolve) => {
       if (this.cancelled) return resolve();
 
-      generateThreeJsCodeForObject({
-        props: this.objectProps,
+      const instructions = ObjectGenerationTask.renderThreeJsGenerationPrompt(
+        this.objectProps
+      );
+
+      generateCode({
+        prompt: instructions,
         model: this.languageModel,
         providerOptions: this.providerOptions,
       })
         .then(async (code) => {
           if (this.cancelled) return;
 
-          const glb = await executeCodeAndExportGlb({
+          const glb = await generateGlbFromCode({
             code,
             timeoutMs: this.vmTimeoutMs,
           });
@@ -234,25 +243,6 @@ class ObjectDesigner {
 
   protected readonly processing = new Map<string, ObjectGenerationTask>();
 
-  waitForTaskEnded(taskId: string, ms: number | null = null) {
-    const task = this.processing.get(taskId);
-    if (!task) return Promise.resolve(true);
-    return new Promise<boolean>((resolve) => {
-      const timeout =
-        ms === null
-          ? null
-          : setTimeout(() => {
-              task.off("ended", cb);
-              resolve(false);
-            }, ms);
-      const cb = () => {
-        if (timeout !== null) clearTimeout(timeout);
-        resolve(true);
-      };
-      task.once("ended", cb);
-    });
-  }
-
   async getObjectState(taskId: string): Promise<ObjectGenerationState | null> {
     const db = await connect();
     const processingTask = this.processing.get(taskId);
@@ -305,11 +295,35 @@ class ObjectDesigner {
       this.processing.delete(task.id);
     });
 
+    task.run();
+
     return task;
   }
 
   cancelTask(id: string) {
-    this.processing.get(id)?.cancel();
+    const task = this.processing.get(id);
+    if (!task) return false;
+    task.cancel();
+    return true;
+  }
+
+  waitForTaskEnded(taskId: string, ms: number | null = null) {
+    const task = this.processing.get(taskId);
+    if (!task) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const timeout =
+        ms === null
+          ? null
+          : setTimeout(() => {
+              task.off("ended", cb);
+              resolve(false);
+            }, ms);
+      const cb = () => {
+        if (timeout !== null) clearTimeout(timeout);
+        resolve(true);
+      };
+      task.once("ended", cb);
+    });
   }
 }
 
