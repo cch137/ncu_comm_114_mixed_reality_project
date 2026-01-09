@@ -7,10 +7,13 @@ import { generateText, type LanguageModel } from "ai";
 import { transpile, ModuleKind, ScriptTarget } from "typescript";
 import z from "zod";
 import { loadInstructionsTemplate } from "../instructions";
+export * as v2 from "./object-designer-v2";
 
 const OUTPUT_DIRNAME = "public/output/workflows/object-designer/";
 
-type ProviderOptions = Parameters<typeof generateText>[0]["providerOptions"];
+export type ProviderOptions = Parameters<
+  typeof generateText
+>[0]["providerOptions"];
 
 export const ObjectPropsSchema = z.object({
   object_name: z.string().min(1),
