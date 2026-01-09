@@ -170,6 +170,8 @@ export class ObjectGenerationTask extends EventEmitter<{
           });
           const result = { code, glb, mime_type: "model/gltf-binary" };
 
+          if (this.cancelled) return;
+
           this.status = Status.SUCCEEDED;
           this.emit("success", result);
           this.save(result).finally(() => this.emit("ended"));
