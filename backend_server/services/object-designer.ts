@@ -12,6 +12,10 @@ import {
   ObjectPropsSchema,
   ProviderOptions,
 } from "./workflows/schemas";
+import {
+  type GlbBinary,
+  GlbSnapshotsRenderer,
+} from "./workflows/render-glb-snapshots";
 import { loadInstructionsTemplateSync } from "./instructions";
 
 export const ObjectGenerationOptionsSchema = z.object({
@@ -241,6 +245,17 @@ export class ObjectGenerationTask extends EventEmitter<{
 }
 
 class ObjectDesigner {
+  private static readonly renderer = new GlbSnapshotsRenderer();
+
+  static createSnapshotPng(glbBinary: GlbBinary) {
+    return this.renderer.renderGlbSnapshotsToGrid(glbBinary, {
+      size: 512,
+      background: "#000000",
+      format: "image/png",
+      timeoutMs: 10_000,
+    });
+  }
+
   constructor() {}
 
   protected readonly processing = new Map<string, ObjectGenerationTask>();

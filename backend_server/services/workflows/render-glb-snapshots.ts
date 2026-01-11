@@ -20,7 +20,7 @@ export type RenderGlbSnapshotsOptions = {
 };
 
 export type ImageGridOptions = {
-  background?: string; // used for padding & empty cells, default #00000000
+  background?: string; // used for padding & empty cells, default #000000
   format?: "image/png" | "image/jpeg"; // default "image/png"
   jpegQuality?: number; // 0..1, default 0.92
 };
@@ -159,7 +159,7 @@ export async function createImageGrid(
   options: ImageGridOptions = {}
 ): Promise<Buffer> {
   const {
-    background = "#00000000",
+    background = "#000000",
     format = "image/png",
     jpegQuality = 0.92,
   } = options;
@@ -225,25 +225,32 @@ export class GlbSnapshotsRenderer {
     } = options;
 
     if (!views.length) {
-      views.push({ polar: deg(0), azimuth: deg(0) });
-      views.push({ polar: deg(20), azimuth: deg(0) });
-      views.push({ polar: deg(180), azimuth: deg(0) });
-      views.push({ polar: deg(160), azimuth: deg(0) });
+      const helix1: typeof views = [];
+      const helix2: typeof views = [];
+      const N = 16;
+      const M = N / 2; // 8 points per helix
+      const turns = 1; // 繞幾圈：1 或 2 常用
 
-      views.push({ polar: deg(45), azimuth: deg(0) });
-      views.push({ polar: deg(45), azimuth: deg(90) });
-      views.push({ polar: deg(45), azimuth: deg(180) });
-      views.push({ polar: deg(45), azimuth: deg(270) });
+      for (let i = 0; i < M; i++) {
+        // Helix A: from top (north pole) downward, includes polar=0, excludes polar=180
+        const tA = i / M; // 0, 1/8, ..., 7/8
+        const zA = 1 - 2 * tA; // 1 -> -0.75
+        const polarA = (Math.acos(zA) * 180) / Math.PI;
+        const azA = (turns * 360 * tA) % 360;
 
-      views.push({ polar: deg(90), azimuth: deg(0) });
-      views.push({ polar: deg(90), azimuth: deg(90) });
-      views.push({ polar: deg(90), azimuth: deg(180) });
-      views.push({ polar: deg(90), azimuth: deg(270) });
+        helix1.push({ polar: deg(polarA), azimuth: deg(azA) });
 
-      views.push({ polar: deg(135), azimuth: deg(0) });
-      views.push({ polar: deg(135), azimuth: deg(90) });
-      views.push({ polar: deg(135), azimuth: deg(180) });
-      views.push({ polar: deg(135), azimuth: deg(270) });
+        // Helix B: from bottom (south pole) upward, includes polar=180, excludes polar=0
+        const tB = 1 - i / M; // 1, 7/8, ..., 1/8
+        const zB = 1 - 2 * tB; // -1 -> 0.75
+        const polarB = (Math.acos(zB) * 180) / Math.PI;
+
+        // phase shift 180° to make it a true double-helix (avoid overlap)
+        const azB = (turns * 360 * tB + 180) % 360;
+
+        helix2.push({ polar: deg(polarB), azimuth: deg(azB) });
+      }
+      views.push(...helix1, ...helix2);
     }
 
     const glbBuffer = toBuffer(glbBinary);

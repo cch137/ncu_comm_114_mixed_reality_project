@@ -1,6 +1,6 @@
 // test/workflows/render-glb-snapshots.test.ts
 import path from "path";
-import { mkdir, readFile, stat, writeFile } from "fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "fs/promises";
 import sharp from "sharp";
 import {
   GlbSnapshotsRenderer,
@@ -33,6 +33,7 @@ describe("workflows/render-glb-snapshots", () => {
   beforeAll(async () => {
     glb = await readFile(fixturePath);
     renderer = new GlbSnapshotsRenderer();
+    await rm(outDir, { recursive: true, force: true });
     await mkdir(outDir, { recursive: true });
   });
 
@@ -54,7 +55,7 @@ describe("workflows/render-glb-snapshots", () => {
       const buf = views[i];
       const file = path.join(
         outDir,
-        `vase-default-view-${String(i).padStart(2, "0")}.png`
+        `default-view-${String(i).padStart(2, "0")}.png`
       );
 
       await writeFile(file, buf);
@@ -70,11 +71,11 @@ describe("workflows/render-glb-snapshots", () => {
     }
 
     const grid = await createImageGrid(views, {
-      background: "#00000000",
+      background: "#000000",
       format: "image/png",
     });
 
-    const gridFile = path.join(outDir, "vase-default-grid.png");
+    const gridFile = path.join(outDir, "default-grid.png");
     await writeFile(gridFile, grid);
 
     const gridStat = await stat(gridFile);
@@ -108,7 +109,7 @@ describe("workflows/render-glb-snapshots", () => {
       const buf = views[i];
       const file = path.join(
         outDir,
-        `vase-jpeg-view-${String(i).padStart(2, "0")}.jpg`
+        `jpeg-view-${String(i).padStart(2, "0")}.jpg`
       );
 
       await writeFile(file, buf);
@@ -129,7 +130,7 @@ describe("workflows/render-glb-snapshots", () => {
       jpegQuality: 0.85,
     });
 
-    const gridFile = path.join(outDir, "vase-jpeg-grid.jpg");
+    const gridFile = path.join(outDir, "jpeg-grid.jpg");
     await writeFile(gridFile, grid);
 
     const gridStat = await stat(gridFile);
