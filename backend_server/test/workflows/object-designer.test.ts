@@ -6,7 +6,7 @@ import { extractCodeFromMarkdown } from "../../services/workflows/generate-code"
 
 describe("workflows/object-designer", () => {
   it("extracts code from teapot.md and exports GLTF to output file", async () => {
-    jest.setTimeout(30_000);
+    jest.setTimeout(10_000);
 
     const fixturePath = path.resolve(
       process.cwd(),
