@@ -8,4 +8,6 @@ module.exports = {
   transform: {
     ...tsJestTransformCfg,
   },
+  verbose: true,
+  maxWorkers: 16,
 };

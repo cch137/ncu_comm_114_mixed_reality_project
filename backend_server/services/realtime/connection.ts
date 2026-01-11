@@ -450,7 +450,7 @@ export class RealtimeRoom {
           object_name: "Teapot",
           object_description: "A default object used for testing.",
         },
-        url: "https://40001.cch137.com/output/workflows/object-designer/teapot.gltf",
+        url: "https://40001.cch137.com/glb_samples/teapot.glb",
       });
       room = new RealtimeRoom(id);
       room.addEntity(teapot);
