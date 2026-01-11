@@ -12,5 +12,11 @@
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "ms-python.black-formatter"
   },
+  "[html]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "dotnet.defaultSolution": "disable"
 }
