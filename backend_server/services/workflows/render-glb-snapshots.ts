@@ -217,7 +217,7 @@ export class GlbSnapshotsRenderer {
     const contextPromise = this.lazyContext.ensureInitialized();
     const {
       views = [],
-      size = 1024,
+      size = 512,
       background = "#000000",
       format = "image/png",
       jpegQuality = 0.92,
